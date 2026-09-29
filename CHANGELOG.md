@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3
+
+- Codex CLIをsymlink経由で起動した形（`node <symlinkのpath>`）も、再起動待ちとして照合する。
+- macOS・Windowsで失敗していた試験を直した（試験のコマンド行の書き方と、macOSの一時ディレクトリの実体path）。0.1.1・0.1.2のmainのCIはこの試験でmacOS・Windowsが失敗していた。
+
 ## 0.1.2
 
 - CodexのSteer（作業中のturnへの差し込み）を、Codex Desktopの無い端末とLinuxにも広げた（指揮官氏の判断 2026-09-29）。公式Desktopの同梱CLI（macOS・Windows・Linux）を先に探し、無ければ通常のCodex CLI（0.154以上）を使う。以前はmacOS・WindowsのDesktopだけで、Linuxは`unsupported`だった。

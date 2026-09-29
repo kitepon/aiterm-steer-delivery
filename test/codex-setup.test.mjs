@@ -15,9 +15,9 @@ test('Windowsの表記ゆれ（区切り・大文字小文字・引用符）も�
   const hook = join(root, 'demo-codex-hook.js'); writeFileSync(hook, '');
   const binary = 'C:/Program Files/Codex/codex.exe';
   const rows = [
-    { pid: 10, started_identity: 'a', parent_pid: 1, command: '"C:\\\\Program Files\\\\Codex\\\\codex.exe" app-server' },
-    { pid: 11, started_identity: 'b', parent_pid: 1, command: 'c:\\\\old\\\\codex.exe' },
-    { pid: 12, started_identity: 'c', parent_pid: 1, command: 'C:\\\\Program Files\\\\Codex\\\\codex-other.exe' },
+    { pid: 10, started_identity: 'a', parent_pid: 1, command: String.raw`"C:\Program Files\Codex\codex.exe" app-server` },
+    { pid: 11, started_identity: 'b', parent_pid: 1, command: String.raw`c:\old\codex.exe` },
+    { pid: 12, started_identity: 'c', parent_pid: 1, command: String.raw`C:\Program Files\Codex\codex-other.exe` },
   ];
   let prepared = null;
   const result = await configureCodexSteer(profile(root), 'enable', { hook, platform: 'win32', codex_home: home, node: process.execPath,
@@ -53,19 +53,22 @@ test('Desktopが見つからなければCodex CLIを使い、どちらも無け�
 test('npm版のCodex CLI（node …/codex.js とnative本体）も再起動待ちとして照合する', async t => {
   const root = fresh(t), home = join(root, 'codex'); mkdirSync(home);
   const hook = join(root, 'demo-codex-hook.js'); writeFileSync(hook, '');
-  const pkg = join(root, 'lib', 'node_modules', '@openai', 'codex'); mkdirSync(join(pkg, 'bin'), { recursive: true });
-  writeFileSync(join(pkg, 'bin', 'codex.js'), '');
-  const { symlinkSync } = await import('node:fs');
-  mkdirSync(join(root, 'bin')); symlinkSync(join(pkg, 'bin', 'codex.js'), join(root, 'bin', 'codex'));
+  const { symlinkSync, realpathSync } = await import('node:fs');
+  const made = join(root, 'lib', 'node_modules', '@openai', 'codex'); mkdirSync(join(made, 'bin'), { recursive: true });
+  writeFileSync(join(made, 'bin', 'codex.js'), '');
+  mkdirSync(join(root, 'bin')); symlinkSync(join(made, 'bin', 'codex.js'), join(root, 'bin', 'codex'));
+  // nodeはpackageの中を実体のpath（macOSの/var→/private/var等）で動かす。起動はsymlinkのpathのこともある。
+  const pkg = realpathSync(made);
   const rows = [
     { pid: 21, started_identity: 'a', parent_pid: 1, command: `node ${join(pkg, 'bin', 'codex.js')} resume` },
     { pid: 22, started_identity: 'b', parent_pid: 21, command: `${join(pkg, 'node_modules', '@openai', 'codex-linux-x64', 'vendor', 'x', 'codex', 'codex')}` },
+    { pid: 24, started_identity: 'd', parent_pid: 1, command: `node ${join(root, 'bin', 'codex')}` },
     { pid: 23, started_identity: 'c', parent_pid: 1, command: 'node /other/tool.js' },
   ];
-  const result = await configureCodexSteer(profile(root), 'enable', { hook, platform: 'linux', codex_home: home, node: process.execPath,
+  const result = await configureCodexSteer(profile(root), 'enable', { hook, platform: process.platform, codex_home: home, node: process.execPath,
     findBinary: () => join(root, 'bin', 'codex'), processes: () => rows, legacy: () => null, verify: async () => {} });
   assert.equal(result.status, 'restart_required');
-  assert.deepEqual(readCodexHookConfig(profile(root)).stale_processes.map(row => row.pid), [21, 22]);
+  assert.deepEqual(readCodexHookConfig(profile(root)).stale_processes.map(row => row.pid), [21, 22, 24]);
 });
 
 test('導入前から動くCodexを、引用符付きと旧方式の実行ファイルも含めて再起動待ちにする', async t => {

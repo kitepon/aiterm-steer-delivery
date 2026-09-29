@@ -209,8 +209,10 @@ export async function configureCodexSteer(profile: ProductProfile, action: Codex
   const stale = !previous?.enabled || changed || legacy?.enabled
     ? runtime.processes().filter(row => binaries.some(candidate => {
       const command = normalize(row.command);
+      // 実行ファイルそのもの、またはnode等に渡された引数として（`node <path>`）現れるもの。
       return (row.executable !== undefined && normalize(row.executable) === candidate) || command === candidate || command === `"${candidate}"`
-        || command.startsWith(candidate + " ") || command.startsWith(`"${candidate}" `);
+        || command.startsWith(candidate + " ") || command.startsWith(`"${candidate}" `)
+        || command.endsWith(" " + candidate) || command.includes(` ${candidate} `) || command.includes(` "${candidate}"`);
     }) || roots.some(root => normalize(row.command).includes(root + (runtime.platform === "win32" ? "\\" : "/"))))
       .map(({ pid, started_identity }) => ({ pid, started_identity }))
     : previous.stale_processes;
