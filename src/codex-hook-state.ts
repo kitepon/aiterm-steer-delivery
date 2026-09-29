@@ -55,6 +55,7 @@ export function finishCodexHookSubmission(home: string, thread: string, id: stri
 export function codexHookDeliveryState(home: string, thread: string, id: string, root: string): "sending" | "unknown" | null {
   if (!fs.existsSync(path.join(root, "inputs"))) return null;
   let value: any;
+  // Codex環境が見つからない時も、claimが無い時と同じく追加の状態なしとする（Aitermの挙動）。
   try { value = JSON.parse(fs.readFileSync(path.join(codexInputDirectory(root, home, thread), "claims", `${z.uuid().parse(id)}.json`), "utf8")); }
   catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return null; throw error; }
   // 所有権のlinkだけを作った段階では、公式キューからまだ削除していない。
