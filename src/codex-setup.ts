@@ -27,7 +27,12 @@ export function codexHookCommand(node: string, hook: string, directory: string, 
   return [node, hook, directory].map(value => "'" + value.replace(/'/g, "'\"'\"'") + "'").join(" ");
 }
 
-export function mergeCodexParentHooks(profile: ProductProfile, file: string, command: string | null, previousCommand?: string): boolean {
+/** hooks.jsonの書き換えで位置が動く他のhook。Codexは承認を「ファイル:イベント:まとまり:番号」の鍵で持つ。 */
+export type CodexHookMove = { event: string; from: [number, number]; to: [number, number] | null };
+export type CodexHookPlan = { target: string; current: any; next: any; changed: boolean; moves: CodexHookMove[] };
+
+/** 自製品のhookを置換・解除した後のhooks.jsonと、他のhookの位置の動きを計算する（書き込まない）。 */
+export function planCodexParentHooks(file: string, command: string | null, previousCommand?: string): CodexHookPlan {
   if (!fs.existsSync(file)) {
     try { if (fs.lstatSync(file).isSymbolicLink()) throw new SetupError("codex_hook_config_invalid", "hook設定symlinkの参照先がありません"); }
     catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
@@ -41,29 +46,84 @@ export function mergeCodexParentHooks(profile: ProductProfile, file: string, com
   const object = (value: any) => value && typeof value === "object" && !Array.isArray(value);
   if (!object(current) || (current.hooks !== undefined && !object(current.hooks))) throw new SetupError("codex_hook_config_invalid", "Codexのhooks設定を読めません");
   const hooks = { ...current.hooks };
+  const moves: CodexHookMove[] = [];
   for (const event of ["PostToolUse", "Stop"]) {
     const groups = hooks[event] ?? [];
     if (!Array.isArray(groups) || groups.some(group => !object(group) || !Array.isArray(group.hooks))) throw new SetupError("codex_hook_config_invalid", `${event}のhook設定を読めません`);
+    const owned = (hook: any) => hook?.type === "command" && ((command !== null && hook.command === command) || (!!previousCommand && hook.command === previousCommand));
+    const before = new Map<unknown, [number, number]>();
+    groups.forEach((group: any, g: number) => group.hooks.forEach((hook: any, h: number) => { if (!owned(hook)) before.set(hook, [g, h]); }));
     // 既存の位置で置換する。末尾へ移すと同じ設定の再導入でも変更扱いになり、
     // 稼働中のCodexへ不要な再起動を要求してしまう。
     hooks[event] = [];
     let insertionIndex: number | null = null;
     for (const group of groups) {
-      const remaining = group.hooks.filter((hook: any) =>
-        !(hook?.type === "command" && ((command !== null && hook.command === command) || (previousCommand && hook.command === previousCommand))));
+      const remaining = group.hooks.filter((hook: any) => !owned(hook));
       if (remaining.length !== group.hooks.length && insertionIndex === null) insertionIndex = hooks[event].length;
       if (remaining.length) hooks[event].push({ ...group, hooks: remaining });
     }
     if (command !== null) hooks[event].splice(insertionIndex ?? hooks[event].length, 0, { ...(event === "PostToolUse" ? { matcher: ".*" } : {}),
       hooks: [{ type: "command", command, timeout: 20, ...(event === "PostToolUse" ? { additionalContextLimit: 0 } : {}) }] });
+    // 他製品・利用者のhookの位置の動きを記録する（承認を新しい位置へ写すため）。
+    const after = new Map<unknown, [number, number]>();
+    hooks[event].forEach((group: any, g: number) => group.hooks.forEach((hook: any, h: number) => after.set(hook, [g, h])));
+    for (const [hook, from] of before) {
+      const to = after.get(hook) ?? null;
+      if (!to || to[0] !== from[0] || to[1] !== from[1]) moves.push({ event, from, to });
+    }
     if (!hooks[event].length) delete hooks[event];
   }
   const next = { ...current, hooks };
-  if (isDeepStrictEqual(current, next)) return false;
-  if (fs.existsSync(target)) fs.copyFileSync(target, `${target}${profile.backup_suffix}`);
-  writeHookJson(target, next);
-  if (!isDeepStrictEqual(JSON.parse(fs.readFileSync(target, "utf8")), next)) throw new SetupError("codex_hook_readback_failed", "Codex hookの読戻しが一致しません");
+  return { target, current, next, changed: !isDeepStrictEqual(current, next), moves };
+}
+
+export function writeCodexHookPlan(profile: ProductProfile, plan: CodexHookPlan): boolean {
+  if (!plan.changed) return false;
+  if (fs.existsSync(plan.target)) fs.copyFileSync(plan.target, `${plan.target}${profile.backup_suffix}`);
+  writeHookJson(plan.target, plan.next);
+  if (!isDeepStrictEqual(JSON.parse(fs.readFileSync(plan.target, "utf8")), plan.next)) throw new SetupError("codex_hook_readback_failed", "Codex hookの読戻しが一致しません");
   return true;
+}
+
+export function mergeCodexParentHooks(profile: ProductProfile, file: string, command: string | null, previousCommand?: string): boolean {
+  return writeCodexHookPlan(profile, planCodexParentHooks(file, command, previousCommand));
+}
+
+const snake = (event: string) => event.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
+
+/**
+ * 自製品のhookを書き換えて他のhookの位置が動く時、その承認（trusted_hash・enabled）を新しい位置へ写してから書き換え、
+ * 空いた位置の承認を消す。承認を新たに与えたり外したりはしない。位置が動かなければ公式APIを呼ばない。
+ */
+export async function applyCodexHookPlan(profile: ProductProfile, plan: CodexHookPlan, codexHome: string, executable: string | undefined): Promise<boolean> {
+  if (!plan.changed) return false;
+  if (!plan.moves.length) return writeCodexHookPlan(profile, plan);
+  return withCodexReceiver(profile, { thread_id: "00000000-0000-4000-8000-000000000000", codex_home: codexHome }, async request => {
+    const listed = await request("hooks/list", { cwds: [codexHome] });
+    const source = fs.realpathSync(plan.target);
+    const sample = (listed?.data?.[0]?.hooks ?? []).find((hook: any) => hook.sourcePath === source && typeof hook.key === "string");
+    if (!sample) throw new SetupError("codex_hook_schema_unknown", "公式APIでhookの鍵を確認できません");
+    const prefix = String(sample.key).split(":").slice(0, -3).join(":");
+    const key = (event: string, [g, h]: [number, number]) => `${prefix}:${snake(event)}:${g}:${h}`;
+    const state = (await request("config/read", { includeLayers: false }))?.config?.hooks?.state ?? {};
+    const configFile = path.join(codexHome, "config.toml");
+    const field = (target: string, name: string, value: unknown) => ({ keyPath: `hooks.state.${JSON.stringify(target)}.${name}`, value, mergeStrategy: "replace" });
+    const copy = plan.moves.filter(move => move.to).flatMap(move => {
+      const saved = state[key(move.event, move.from)];
+      const target = key(move.event, move.to!);
+      return saved && typeof saved === "object"
+        ? [field(target, "trusted_hash", saved.trusted_hash ?? null), field(target, "enabled", saved.enabled ?? null)]
+        : [{ keyPath: `hooks.state.${JSON.stringify(target)}`, value: null, mergeStrategy: "replace" }];
+    });
+    if (copy.length) await request("config/batchWrite", { edits: copy, filePath: configFile });
+    writeCodexHookPlan(profile, plan);
+    // 書き換え後に使われなくなった位置の承認を消す（他のhookへ写した値は残る）。
+    const used = new Set<string>();
+    for (const event of ["PostToolUse", "Stop"]) (plan.next.hooks?.[event] ?? []).forEach((group: any, g: number) => group.hooks.forEach((_: unknown, h: number) => used.add(key(event, [g, h]))));
+    const vacated = plan.moves.map(move => key(move.event, move.from)).filter(old => !used.has(old) && state[old] !== undefined);
+    if (vacated.length) await request("config/batchWrite", { edits: vacated.map(old => ({ keyPath: `hooks.state.${JSON.stringify(old)}`, value: null, mergeStrategy: "replace" })), filePath: configFile });
+    return true;
+  }, executable ? { executable } : {});
 }
 
 export type CodexSteerRuntime = {
@@ -122,7 +182,10 @@ export async function configureCodexSteer(profile: ProductProfile, action: Codex
     return legacy?.enabled || needsRestart(previous) ? { status: "restart_required", reason_code: "codex_restart_required" } : { status: "ready" };
   }
   if (action === "disable") {
-    if (previous?.enabled) { mergeCodexParentHooks(profile, file, null, previous.command); save({ ...previous, enabled: false }); }
+    if (previous?.enabled) {
+      await applyCodexHookPlan(profile, planCodexParentHooks(file, null, previous.command), previous.codex_home, await currentCodexDesktopBinary(profile, previous, { directory: runtime.directory }).catch(() => undefined));
+      save({ ...previous, enabled: false });
+    }
     if (legacy?.enabled) return runtime.disableLegacy();
     return previous?.enabled ? { status: "restart_required", reason_code: "codex_restart_required" } : { status: "disabled" };
   }
@@ -132,7 +195,7 @@ export async function configureCodexSteer(profile: ProductProfile, action: Codex
   fs.accessSync(node, fs.constants.X_OK); fs.accessSync(runtime.hook, fs.constants.R_OK);
   const binary = runtime.findBinary();
   const command = codexHookCommand(node, runtime.hook, runtime.directory, runtime.platform as NodeJS.Platform, runtime.powershell);
-  const changed = mergeCodexParentHooks(profile, file, command, previous?.command);
+  const changed = await applyCodexHookPlan(profile, planCodexParentHooks(file, command, previous?.command), runtime.codex_home, binary);
   // hook導入前から動いているCodexを再起動待ちとして記録する。今のDesktop、前回の登録、旧方式が起動したCodexを、
   // 引用符付きのコマンド行も含めて照合する（Windowsは区切りと大文字小文字を揃える）。
   const normalize = (value: string) => runtime.platform === "win32" ? value.replaceAll("/", "\\").toLowerCase() : value;

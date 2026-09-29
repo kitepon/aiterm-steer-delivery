@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Codex hookの解除（disable）で、自製品のhookのまとまりを抜くと後ろの他製品・利用者のhookの位置がずれ、Codexが位置の鍵で持つ承認と合わなくなって「modified」になり動かなくなっていた（紅蓮氏の報告、macbookでgrokbot-bridgeとpeertableのhookが止まった）。位置が動くhookの承認（trusted_hash・enabled）を、hooks.jsonを書き換える前に新しい位置へ写し、書き換え後に空いた位置の承認を消す。承認を新たに与えたり外したりはしない。公式Codexで確かめる試験を加えた。
 - `verifyCodexParent`（CLIの`codex verify`）が、確認したthreadの`cwd`と`source`を返す。execの親かどうかの見分けに使える（call-bridgeの依頼）。
 
 ## 0.1.0
