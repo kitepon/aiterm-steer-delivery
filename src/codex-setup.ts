@@ -29,7 +29,7 @@ export function codexHookCommand(node: string, hook: string, directory: string, 
 
 /** hooks.jsonの書き換えで位置が動く他のhook。Codexは承認を「ファイル:イベント:まとまり:番号」の鍵で持つ。 */
 export type CodexHookMove = { event: string; from: [number, number]; to: [number, number] | null };
-export type CodexHookPlan = { target: string; current: any; next: any; changed: boolean; moves: CodexHookMove[] };
+export type CodexHookPlan = { target: string; current: any; next: any; changed: boolean; moves: CodexHookMove[]; owned: { event: string; at: [number, number] }[] };
 
 /** 自製品のhookを置換・解除した後のhooks.jsonと、他のhookの位置の動きを計算する（書き込まない）。 */
 export function planCodexParentHooks(file: string, command: string | null, previousCommand?: string): CodexHookPlan {
@@ -47,12 +47,13 @@ export function planCodexParentHooks(file: string, command: string | null, previ
   if (!object(current) || (current.hooks !== undefined && !object(current.hooks))) throw new SetupError("codex_hook_config_invalid", "Codexのhooks設定を読めません");
   const hooks = { ...current.hooks };
   const moves: CodexHookMove[] = [];
+  const ownedAt: { event: string; at: [number, number] }[] = [];
   for (const event of ["PostToolUse", "Stop"]) {
     const groups = hooks[event] ?? [];
     if (!Array.isArray(groups) || groups.some(group => !object(group) || !Array.isArray(group.hooks))) throw new SetupError("codex_hook_config_invalid", `${event}のhook設定を読めません`);
     const owned = (hook: any) => hook?.type === "command" && ((command !== null && hook.command === command) || (!!previousCommand && hook.command === previousCommand));
     const before = new Map<unknown, [number, number]>();
-    groups.forEach((group: any, g: number) => group.hooks.forEach((hook: any, h: number) => { if (!owned(hook)) before.set(hook, [g, h]); }));
+    groups.forEach((group: any, g: number) => group.hooks.forEach((hook: any, h: number) => { if (!owned(hook)) before.set(hook, [g, h]); else ownedAt.push({ event, at: [g, h] }); }));
     // 既存の位置で置換する。末尾へ移すと同じ設定の再導入でも変更扱いになり、
     // 稼働中のCodexへ不要な再起動を要求してしまう。
     hooks[event] = [];
@@ -74,7 +75,7 @@ export function planCodexParentHooks(file: string, command: string | null, previ
     if (!hooks[event].length) delete hooks[event];
   }
   const next = { ...current, hooks };
-  return { target, current, next, changed: !isDeepStrictEqual(current, next), moves };
+  return { target, current, next, changed: !isDeepStrictEqual(current, next), moves, owned: ownedAt };
 }
 
 export function writeCodexHookPlan(profile: ProductProfile, plan: CodexHookPlan): boolean {
@@ -97,7 +98,17 @@ const snake = (event: string) => event.replace(/([a-z0-9])([A-Z])/g, "$1_$2").to
  */
 export async function applyCodexHookPlan(profile: ProductProfile, plan: CodexHookPlan, codexHome: string, executable: string | undefined): Promise<boolean> {
   if (!plan.changed) return false;
-  if (!plan.moves.length) return writeCodexHookPlan(profile, plan);
+  // 他のhookが動かず、自製品のhookを外すだけの時は、書き換えてから空いた位置の承認を消す。
+  // 承認の後片付けが公式APIの都合でできなくても、hookの解除そのものは止めない。
+  if (!plan.moves.length) {
+    writeCodexHookPlan(profile, plan);
+    if (plan.owned.length) {
+      await cleanVacatedTrust(profile, plan, codexHome, executable).catch(error => {
+        process.stderr.write(`${profile.id}: 外したhookの承認記録を消せませんでした（${error instanceof Error ? error.message : String(error)}）\n`);
+      });
+    }
+    return true;
+  }
   return withCodexReceiver(profile, { thread_id: "00000000-0000-4000-8000-000000000000", codex_home: codexHome }, async request => {
     const listed = await request("hooks/list", { cwds: [codexHome] });
     const source = fs.realpathSync(plan.target);
@@ -120,10 +131,38 @@ export async function applyCodexHookPlan(profile: ProductProfile, plan: CodexHoo
     // 書き換え後に使われなくなった位置の承認を消す（他のhookへ写した値は残る）。
     const used = new Set<string>();
     for (const event of ["PostToolUse", "Stop"]) (plan.next.hooks?.[event] ?? []).forEach((group: any, g: number) => group.hooks.forEach((_: unknown, h: number) => used.add(key(event, [g, h]))));
-    const vacated = plan.moves.map(move => key(move.event, move.from)).filter(old => !used.has(old) && state[old] !== undefined);
+    const vacated = [...plan.moves.map(move => key(move.event, move.from)), ...plan.owned.map(item => key(item.event, item.at))]
+      .filter((old, index, all) => all.indexOf(old) === index && !used.has(old) && state[old] !== undefined);
     if (vacated.length) await request("config/batchWrite", { edits: vacated.map(old => ({ keyPath: `hooks.state.${JSON.stringify(old)}`, value: null, mergeStrategy: "replace" })), filePath: configFile });
     return true;
   }, executable ? { executable } : {});
+}
+
+/** hooks.jsonを書き換えた後、自製品のhookが居た位置で空いたものの承認記録を消す。 */
+async function cleanVacatedTrust(profile: ProductProfile, plan: CodexHookPlan, codexHome: string, executable: string | undefined): Promise<void> {
+  await withCodexReceiver(profile, { thread_id: "00000000-0000-4000-8000-000000000000", codex_home: codexHome }, async request => {
+    const source = fs.realpathSync(plan.target);
+    const prefix = `${source}`;
+    const key = (event: string, [g, h]: [number, number]) => `${prefix}:${snake(event)}:${g}:${h}`;
+    const state = (await request("config/read", { includeLayers: false }))?.config?.hooks?.state ?? {};
+    const used = new Set<string>();
+    for (const event of ["PostToolUse", "Stop"]) (plan.next.hooks?.[event] ?? []).forEach((group: any, g: number) => group.hooks.forEach((_: unknown, h: number) => used.add(key(event, [g, h]))));
+    // 鍵のfile部分はCodexの表記（hooks/listのkey）に合わせる。記録にある鍵のうち、同じfileを指すものだけを対象にする。
+    const vacated = Object.keys(state).filter(stored => plan.owned.some(item => stored.endsWith(`:${snake(item.event)}:${item.at[0]}:${item.at[1]}`)
+      && samePath(stored.split(":").slice(0, -3).join(":"), source)) && !used.has(key(...parseSuffix(stored))));
+    if (vacated.length) await request("config/batchWrite", { edits: vacated.map(old => ({ keyPath: `hooks.state.${JSON.stringify(old)}`, value: null, mergeStrategy: "replace" })), filePath: path.join(codexHome, "config.toml") });
+  }, executable ? { executable } : {});
+}
+
+function parseSuffix(stored: string): [string, [number, number]] {
+  const parts = stored.split(":");
+  const h = Number(parts.pop()), g = Number(parts.pop()), event = parts.pop()!;
+  return [event === "post_tool_use" ? "PostToolUse" : event === "stop" ? "Stop" : event, [g, h]];
+}
+
+function samePath(a: string, b: string): boolean {
+  if (a === b) return true;
+  try { return fs.realpathSync(a) === fs.realpathSync(b); } catch { return process.platform === "win32" && a.toLowerCase() === b.toLowerCase(); }
 }
 
 export type CodexSteerRuntime = {

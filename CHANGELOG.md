@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.4
+
+- CodexのSteerのhookを外した後、自製品のhookが居た位置の承認記録（`hooks.state`の`trusted_hash`・`enabled`）が`config.toml`に残っていた（ラプンツェル氏の報告）。他のhookが入らずに空いた位置の記録を消す。別のfileや他の位置の記録は触らない。記録の後片付けが公式APIの都合でできなくても、hookの解除そのものは止めない。
+
 ## 0.1.3
 
 - Codex CLIをsymlink経由で起動した形（`node <symlinkのpath>`）も、再起動待ちとして照合する。

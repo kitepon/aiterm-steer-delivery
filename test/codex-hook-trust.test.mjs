@@ -43,3 +43,29 @@ test('自製品のhookを外しても、後ろの他製品のhookの承認（有
   assert.doesNotMatch(config, /post_tool_use:3:0/u);
   assert.doesNotMatch(config, /stop:1:0/u);
 });
+
+test('自製品のhookだけを外した時は、その位置の承認記録も消す（他の記録は残す）', { skip: !codex && 'Codexがありません' }, async t => {
+  const home = mkdtempSync(join(tmpdir(), 'steer-trust-own-'));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  writeFileSync(join(home, 'hooks.json'), JSON.stringify({ hooks: {
+    PostToolUse: [{ matcher: '.*', hooks: [{ type: 'command', command: 'echo mine', timeout: 5 }] }],
+    Stop: [{ hooks: [{ type: 'command', command: 'echo mine' }] }],
+  } }));
+  const rpc = action => withCodexReceiver(profile(home), { thread_id: '00000000-0000-4000-8000-000000000000', codex_home: home }, action, { executable: codex });
+  const hooks = await rpc(request => request('hooks/list', { cwds: [home] })).then(result => result.data[0].hooks);
+  const edits = hooks.flatMap(hook => [
+    { keyPath: `hooks.state.${JSON.stringify(hook.key)}.trusted_hash`, value: hook.currentHash, mergeStrategy: 'replace' },
+    { keyPath: `hooks.state.${JSON.stringify(hook.key)}.enabled`, value: true, mergeStrategy: 'replace' },
+  ]);
+  // 別のfileのhookの承認記録（他製品や利用者のもの）は触らない。
+  edits.push({ keyPath: `hooks.state.${JSON.stringify('/elsewhere/hooks.json:stop:0:0')}.trusted_hash`, value: 'sha256:keep', mergeStrategy: 'replace' });
+  await rpc(request => request('config/batchWrite', { edits, filePath: join(home, 'config.toml') }));
+  const plan = planCodexParentHooks(join(home, 'hooks.json'), null, 'echo mine');
+  assert.deepEqual(plan.moves, []);
+  assert.equal(await applyCodexHookPlan(profile(home), plan, home, codex), true);
+  const config = readFileSync(join(home, 'config.toml'), 'utf8');
+  assert.doesNotMatch(config, /post_tool_use:0:0/u);
+  assert.doesNotMatch(config, /hooks\.json:stop:0:0"\]\ntrusted_hash = "sha256:[0-9a-f]{20}/u);
+  assert.match(config, /elsewhere\/hooks\.json:stop:0:0/u);
+  assert.deepEqual(JSON.parse(readFileSync(join(home, 'hooks.json'), 'utf8')), { hooks: {} });
+});
