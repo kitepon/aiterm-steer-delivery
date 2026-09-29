@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.1.7
+
+- WindowsのCursor（cursor-agent 2026.09.28）はhookのstdinのJSONの先頭にBOM（U+FEFF）を付ける。`handleCursorHook`がそのまま読んで失敗し、会話への結び付けも作業中の差し込みも起きず、配送は`sending`のまま止まっていた（紅蓮氏の報告、foxで確認）。hook入口の読み取り（Codex・Claude Code・Cursor共通）と`handleCursorHook`で先頭のBOMを落とす。`withoutBom`も公開する。
 ## 0.1.6
 
 - Cursor CLI（cursor-agent）の親もCursor親として見分ける。CLIはMCPのinitializeで`clientInfo.name`を`"Cursor"`と名乗り、`"cursor-vscode"`（Desktop）しか見ていなかったため、CLIから呼ぶとhookと背景受信の配送に乗らなかった（紅蓮氏の報告、macbookのcursor-agent 2026.09.28で確認）。

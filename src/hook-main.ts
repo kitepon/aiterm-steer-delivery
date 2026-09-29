@@ -5,6 +5,7 @@ import { claudeHookRoot, cursorHookRoot, type ProductProfile } from "./profile.j
 import { runCodexResultHook } from "./codex-hooks.js";
 import { prepareClaudeHookRequest, runClaudeResultHook, closeClaudeParentSession } from "./claude-receiver.js";
 import { handleCursorHook } from "./cursor-receiver.js";
+import { withoutBom } from "./files.js";
 import { runCursorReceive } from "./cursor-receive.js";
 import { channelReceiveProcess, closeClaudeSessionChannels, handleCursorChannelHook, receiveFromChannel, runClaudeChannelWaiter } from "./channel.js";
 
@@ -12,7 +13,7 @@ async function readStdin(): Promise<string> {
   let input = "";
   process.stdin.setEncoding("utf8");
   for await (const chunk of process.stdin) input += chunk;
-  return input;
+  return withoutBom(input);
 }
 
 /** Codexの同期hook（PostToolUse／Stop）。stdoutはCodexの公式hook出力だけに使う。失敗をStop継続のexit 2に変換しない。 */

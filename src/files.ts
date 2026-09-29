@@ -3,6 +3,11 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { randomBytes, randomUUID } from "node:crypto";
 
+/** WindowsのCursorはhookのstdinのJSONの先頭にBOM（U+FEFF）を付ける。JSONとして読む前に落とす。 */
+export function withoutBom(text: string): string {
+  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+}
+
 export function writeJson0600(p: string, v: unknown): void {
   // truncate-in-place はクラッシュ/ENOSPC の窓で空・途中 JSON を残すので、temp→rename の原子的置換にする
   const tmp = `${p}.${randomBytes(6).toString("hex")}.tmp`;

@@ -4,7 +4,7 @@ import * as fs from "node:fs";
 import { homedir } from "node:os";
 import * as path from "node:path";
 import { z } from "zod";
-import { waitForFileState, writeJson0600 } from "./files.js";
+import { waitForFileState, withoutBom, writeJson0600 } from "./files.js";
 import { CursorDeliveryError } from "./errors.js";
 import type { ProductProfile } from "./profile.js";
 
@@ -193,7 +193,7 @@ function inject(hookRoot: string, conv: string): string[] {
 
 export async function handleCursorHook(profile: ProductProfile, raw: string, hookRoot: string): Promise<Record<string, unknown>> {
   let parsed: unknown;
-  try { parsed = JSON.parse(raw); }
+  try { parsed = JSON.parse(withoutBom(raw)); }
   catch { return {}; }
   if (parsed === null || typeof parsed !== "object") return {};
   const event = parsed as Record<string, unknown>;
