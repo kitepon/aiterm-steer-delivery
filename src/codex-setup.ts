@@ -68,9 +68,11 @@ export function mergeCodexParentHooks(profile: ProductProfile, file: string, com
 export type CodexSteerRuntime = {
   platform: string; directory: string; codex_home: string; node: string; hook: string;
   findBinary: () => string; processes: () => RuntimeProcess[];
-  /** 製品が以前使っていた別方式の選択。新規の製品は持たない。 */
-  legacy: () => { enabled: boolean } | null; disableLegacy: () => Promise<CodexSteerResult>;
+  /** 製品が以前使っていた別方式の選択。新規の製品は持たない。binaryは旧方式が起動していたCodex。 */
+  legacy: () => { enabled: boolean; binary?: string } | null; disableLegacy: () => Promise<CodexSteerResult>;
   verify: (config: CodexHookConfig, approve: boolean) => Promise<void>;
+  /** 設定を保存する前にhook directoryを整える（WindowsのACL等）。 */
+  prepareDirectory: (directory: string) => void;
 };
 
 export async function verifyCodexHookRegistration(profile: ProductProfile, config: CodexHookConfig, approve: boolean, directory = codexHookDirectory(profile)): Promise<void> {
@@ -101,11 +103,15 @@ export async function configureCodexSteer(profile: ProductProfile, action: Codex
   const runtime: CodexSteerRuntime = { platform: process.platform, directory, codex_home: realCodexHome(),
     node: process.execPath, findBinary: platformDesktopFinder(),
     processes: readRuntimeProcesses, legacy: () => null,
-    disableLegacy: async () => ({ status: "disabled" }), verify: (config, approve) => verifyCodexHookRegistration(profile, config, approve, directory), ...overrides };
+    disableLegacy: async () => ({ status: "disabled" }), verify: (config, approve) => verifyCodexHookRegistration(profile, config, approve, directory),
+    prepareDirectory: () => undefined, ...overrides };
   const previous = readCodexHookConfig(profile, runtime.directory);
   const legacy = runtime.legacy();
   const file = path.join(action === "disable" && previous ? previous.codex_home : runtime.codex_home, "hooks.json");
-  const save = (config: CodexHookConfig) => writeHookJson(path.join(runtime.directory, "config.json"), config);
+  const save = (config: CodexHookConfig) => {
+    runtime.prepareDirectory(runtime.directory);
+    writeHookJson(path.join(runtime.directory, "config.json"), config);
+  };
   const needsRestart = (config: CodexHookConfig) => runtime.processes().some(process => config.stale_processes.some(stale => stale.pid === process.pid && stale.started_identity === process.started_identity));
   if (action === "status") {
     if (!previous?.enabled) return legacy?.enabled ? { status: "failed", reason_code: "codex_steer_migration_required" } : { status: "disabled" };
@@ -124,9 +130,16 @@ export async function configureCodexSteer(profile: ProductProfile, action: Codex
   const binary = runtime.findBinary();
   const command = codexHookCommand(node, runtime.hook, runtime.directory, runtime.platform as NodeJS.Platform);
   const changed = mergeCodexParentHooks(profile, file, command, previous?.command);
+  // hook導入前から動いているCodexを再起動待ちとして記録する。今のDesktop、前回の登録、旧方式が起動したCodexを、
+  // 引用符付きのコマンド行も含めて照合する（Windowsは区切りと大文字小文字を揃える）。
+  const normalize = (value: string) => runtime.platform === "win32" ? value.replaceAll("/", "\\").toLowerCase() : value;
+  const binaries = [binary, legacy?.binary, previous?.binary].filter((value): value is string => !!value).map(normalize);
   const stale = !previous?.enabled || changed || legacy?.enabled
-    ? runtime.processes().filter(row => row.executable === binary || row.command.startsWith(binary + " "))
-      .map(({ pid, started_identity }) => ({ pid, started_identity }))
+    ? runtime.processes().filter(row => binaries.some(candidate => {
+      const command = normalize(row.command);
+      return (row.executable !== undefined && normalize(row.executable) === candidate) || command === candidate || command === `"${candidate}"`
+        || command.startsWith(candidate + " ") || command.startsWith(`"${candidate}" `);
+    })).map(({ pid, started_identity }) => ({ pid, started_identity }))
     : previous.stale_processes;
   const config: CodexHookConfig = { schema: profile.codex_hook_schema, enabled: true,
     codex_home: runtime.codex_home, binary, command, node, hook: runtime.hook, stale_processes: stale };
