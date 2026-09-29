@@ -191,8 +191,9 @@ export function processCodexHome(pid: number, platform = process.platform, read:
     const index = entry.indexOf("=");
     return [entry.slice(0, index), entry.slice(index + 1)] as [string, string];
   }));
-  const home = env.get("CODEX_HOME") || (env.get("HOME") ? path.join(env.get("HOME")!, ".codex") : null);
-  return home ? path.resolve(home) : null;
+  // Linuxのprocessの値なので、どのOSで試験してもPOSIXの規則で組み立てる。
+  const home = env.get("CODEX_HOME") || (env.get("HOME") ? path.posix.join(env.get("HOME")!, ".codex") : null);
+  return home ? path.posix.resolve(home) : null;
 }
 
 export async function verifyCodexHookRegistration(profile: ProductProfile, config: CodexHookConfig, approve: boolean, directory = codexHookDirectory(profile)): Promise<void> {
