@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.1.6
+
+- Cursor CLI（cursor-agent）の親もCursor親として見分ける。CLIはMCPのinitializeで`clientInfo.name`を`"Cursor"`と名乗り、`"cursor-vscode"`（Desktop）しか見ていなかったため、CLIから呼ぶとhookと背景受信の配送に乗らなかった（紅蓮氏の報告、macbookのcursor-agent 2026.09.28で確認）。
 ## 0.1.5
 
 - Steerの導入で「再起動が要るCodex」を数える時、別のCODEX_HOMEで動くCodex（同じ端末の他の利用者やBot）まで数えていた（紅蓮氏の報告）。Linuxではprocessの環境からCODEX_HOME（無ければHOME/.codex）を読み、hookを入れた場所のものだけを数える。macOS・Windowsは他processの環境を読めないので、今までどおり数える。

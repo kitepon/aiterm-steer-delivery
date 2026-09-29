@@ -16,9 +16,11 @@ export type CursorParent = z.infer<typeof cursorParentSchema>;
 
 const deliveryIdSchema = z.string().uuid();
 
+// Cursor DesktopはMCPのinitializeで "cursor-vscode"、Cursor CLI（cursor-agent）は "Cursor" と名乗る。
+// どちらも同じ ~/.cursor/hooks.json のhookで届く。
 export function isCursorMcpClient(clientName: string | undefined): boolean {
   if (clientName === undefined) return false;
-  return clientName === "cursor-vscode" || clientName.startsWith("cursor-vscode ");
+  return clientName === "cursor-vscode" || clientName.startsWith("cursor-vscode ") || clientName === "Cursor";
 }
 
 export function cursorHooksFile(home = process.env.HOME ?? homedir()): string {
