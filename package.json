@@ -1,28 +1,61 @@
 {
   "name": "aiterm-steer-delivery",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Aiterm's steer delivery as a library: deliver text to the parent AI session that called your MCP tool — steered into the running turn when it is busy, delivered normally when it is idle. Codex (official queue + sync hooks), Claude Code (asyncRewake hooks), Cursor (hooks + background receiver).",
   "type": "module",
   "license": "MIT",
-  "author": { "name": "Quo", "url": "https://kitepon.dev" },
-  "repository": { "type": "git", "url": "git+https://github.com/kitepon/aiterm-steer-delivery.git" },
+  "author": {
+    "name": "Quo",
+    "url": "https://kitepon.dev"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kitepon/aiterm-steer-delivery.git"
+  },
   "homepage": "https://github.com/kitepon/aiterm-steer-delivery#readme",
   "bugs": "https://github.com/kitepon/aiterm-steer-delivery/issues",
-  "keywords": ["mcp", "codex", "claude-code", "cursor", "steer", "hooks", "aiterm", "ai-agents"],
-  "engines": { "node": ">=18" },
+  "keywords": [
+    "mcp",
+    "codex",
+    "claude-code",
+    "cursor",
+    "steer",
+    "hooks",
+    "aiterm",
+    "ai-agents"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
     "./package.json": "./package.json"
   },
-  "bin": { "aiterm-steer-delivery": "dist/cli.js" },
-  "files": ["dist/**/*.js", "dist/**/*.d.ts", "README.md", "CHANGELOG.md", "LICENSE"],
+  "bin": {
+    "aiterm-steer-delivery": "dist/cli.js"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsc",
     "test": "npm run build && node --test test/*.test.mjs",
     "prepublishOnly": "npm run build"
   },
-  "dependencies": { "zod": "^4.4.3" },
-  "devDependencies": { "@types/node": "^25.9.1", "typescript": "^6.0.3" }
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "typescript": "^6.0.3"
+  }
 }
