@@ -3,7 +3,7 @@
 // 製品の識別情報はJSONファイル（--profile）で渡す。state_root・config_rootは絶対pathの文字列にする。
 //
 //   aiterm-steer-delivery --profile <file> codex parent --client <name> --meta <json>
-//   aiterm-steer-delivery --profile <file> codex verify --thread <uuid> [--codex-home <dir>]
+//   aiterm-steer-delivery --profile <file> codex verify --thread <uuid> [--codex-home <dir>]   → thread{thread_id,cwd,source}
 //   aiterm-steer-delivery --profile <file> codex submit --thread <uuid> --delivery <uuid> --text-file <file|-> [--codex-home <dir>]
 //   aiterm-steer-delivery --profile <file> codex state  --thread <uuid> --delivery <uuid> [--codex-home <dir>]
 //   aiterm-steer-delivery --profile <file> codex setup <enable|disable|status>
@@ -63,7 +63,7 @@ export async function runCli(argv: string[]): Promise<unknown> {
   if (kind !== "codex") throw Object.assign(new Error("対応するのは codex だけです"), { delivery_code: "CLI_USAGE" });
   switch (command) {
     case "parent": return { parent: codexParentFromRequest(required(args, "--client"), JSON.parse(option(args, "--meta") ?? "null")) };
-    case "verify": await verifyCodexParent(profile, parent(args)); return { verified: true };
+    case "verify": return { verified: true, thread: await verifyCodexParent(profile, parent(args)) };
     case "submit": {
       const target = parent(args);
       const text = await readText(required(args, "--text-file"));

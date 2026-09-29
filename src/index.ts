@@ -18,7 +18,7 @@ export {
 } from "./codex-hook-state.js";
 export {
   codexParentFromRequest, withCodexReceiver, verifyCodexParent, submitCodexParentAnswer,
-  type CodexParent, type CodexReceiverRuntime,
+  type CodexParent, type CodexParentThread, type CodexReceiverRuntime,
 } from "./codex-receiver.js";
 export { runCodexResultHook } from "./codex-hooks.js";
 export {

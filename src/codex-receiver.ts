@@ -116,9 +116,11 @@ export async function withCodexReceiver<T>(
   }
 }
 
-/** 送る前に、同じstoreの宛先と公式キューの対応を確認する。本文は保存・表示しない。 */
-export async function verifyCodexParent(profile: ProductProfile, parent: CodexParent, runtime?: CodexReceiverRuntime): Promise<void> {
-  await withCodexReceiver(profile, parent, async (request) => {
+export interface CodexParentThread { thread_id: string; cwd: string | null; source: unknown }
+
+/** 送る前に、同じstoreの宛先と公式キューの対応を確認する。本文は保存・表示しない。確認したthreadのcwdとsourceを返す。 */
+export async function verifyCodexParent(profile: ProductProfile, parent: CodexParent, runtime?: CodexReceiverRuntime): Promise<CodexParentThread> {
+  return await withCodexReceiver(profile, parent, async (request) => {
     const response = await request("thread/read", { threadId: parent.thread_id, includeTurns: false });
     if (response?.thread?.id !== parent.thread_id) {
       throw new CodexDeliveryError("CODEX_PARENT_UNAVAILABLE", "同じCodex環境で親threadを確認できません");
@@ -133,6 +135,7 @@ export async function verifyCodexParent(profile: ProductProfile, parent: CodexPa
       assertCodexHookParentCurrent(profile, config);
       assertCodexHooksReady(profile, await request("hooks/list", { cwds: [response.thread.cwd] }), config.command, path.join(parent.codex_home, "hooks.json"));
     }
+    return { thread_id: parent.thread_id, cwd: typeof response.thread.cwd === "string" ? response.thread.cwd : null, source: response.thread.source ?? null };
   }, runtime);
 }
 
