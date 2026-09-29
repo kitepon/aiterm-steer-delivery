@@ -20,6 +20,8 @@ export function claudeParentHookEntries(profile: ProductProfile, hook: HookRunti
   return {
     PreToolUse: [{ matcher, hooks: [{ ...command, timeout: 15 }] }],
     PostToolUse: [{ matcher, hooks: [{ ...command, asyncRewake: true, timeout: 86400 }] }],
+    // 長く続く受信（channel）では、turnが終わるたびに待機を張り直す。
+    ...(profile.channels ? { Stop: [{ hooks: [{ ...command, asyncRewake: true, timeout: 86400 }] }] } : {}),
     SessionEnd: [{ hooks: [{ ...command, timeout: 15 }] }],
   };
 }
@@ -76,7 +78,7 @@ export function removeClaudeParentHooks(profile: ProductProfile, file: string): 
   }
   if (current.hooks === undefined) return "unchanged";
   const hooks = { ...current.hooks as Record<string, unknown> | undefined };
-  for (const event of ["PreToolUse", "PostToolUse", "SessionEnd"]) {
+  for (const event of ["PreToolUse", "PostToolUse", "Stop", "SessionEnd"]) {
     if (hooks[event] === undefined) continue;
     if (!Array.isArray(hooks[event])) throw new SetupError("config_invalid", "Claudeのhook設定を読めません");
     hooks[event] = (hooks[event] as unknown[]).map(group => {

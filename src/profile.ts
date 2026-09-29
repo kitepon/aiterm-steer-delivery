@@ -26,6 +26,12 @@ export interface ProductProfile {
   codex_hook_schema: string;
   /** 設定ファイルを書き換える前に残す控えの接尾辞（例: ".aiterm-backup"）。 */
   backup_suffix: string;
+  /**
+   * 同じ会話へ何通も送る製品（長く続く受信）の設定。無ければ依頼ごとの単発配送だけを使う。
+   * claude_expiry_notice: Claudeの待機がhookの期限（24時間）に近づいた時に、親を起こして待機を張り直すための短い文。
+   * 省略すると、期限では親を起こさずに待機を終える（次のturn終了で張り直す）。
+   */
+  channels?: { claude_expiry_notice?: string };
 }
 
 export function codexHookDirectory(profile: ProductProfile): string {
@@ -38,4 +44,8 @@ export function claudeHookRoot(profile: ProductProfile): string {
 
 export function cursorHookRoot(profile: ProductProfile): string {
   return path.join(profile.state_root(), "cursor-parent-hooks");
+}
+
+export function channelRoot(profile: ProductProfile): string {
+  return path.join(profile.state_root(), "steer-channels");
 }

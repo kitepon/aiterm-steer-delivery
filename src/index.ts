@@ -41,3 +41,9 @@ export {
   cursorParentHookCommand, mergeCursorParentHooks, removeCursorParentHooks, type HookRuntime,
 } from "./hook-setup.js";
 export { runCodexHookMain, runClaudeHookMain, runCursorHookMain, runCursorReceiveMain, isDirectExecution } from "./hook-main.js";
+export { runChannelReceiveMain } from "./hook-main.js";
+export {
+  openChannel, readChannel, channelClosed, closeChannel, sendToChannel, channelDeliveryState, withdrawFromChannel, runClaudeChannelWaiter,
+  closeClaudeSessionChannels, channelIdFromResult, channelMarker, handleCursorChannelHook, channelReceiveProcess, receiveFromChannel,
+  ChannelError, type Channel, type ChannelKind, type ChannelDeliveryState, type ChannelReceiveResult,
+} from "./channel.js";
