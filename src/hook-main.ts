@@ -59,11 +59,21 @@ export async function runClaudeHookMain(profile: ProductProfile, root: string = 
   }
 }
 
-/** Cursorが起動する公式hook。差し込み文をstdoutのJSONへ返す。 */
-export async function runCursorHookMain(profile: ProductProfile, root: string = cursorHookRoot(profile)): Promise<void> {
+/**
+ * Cursorが起動する公式hook。差し込み文をstdoutのJSONへ返す。
+ * rootを複数渡すと、各置き場で結び付けと差し込みを行う。Cursor CLIはMCPを削った環境で起動し、hookは画面側の環境で起動するため、
+ * 環境から置き場を決める製品はMCPとhookで置き場が割れる。配送記録の無い置き場では何もしない。
+ */
+export async function runCursorHookMain(profile: ProductProfile, root: string | readonly string[] = cursorHookRoot(profile)): Promise<void> {
   try {
     const input = await readStdin();
-    const result = await handleCursorHook(profile, input.length > 0 ? input : "{}", root);
+    const result: Record<string, unknown> = {};
+    for (const each of typeof root === "string" ? [root] : [...new Set(root)]) {
+      const found = await handleCursorHook(profile, input.length > 0 ? input : "{}", each);
+      if (typeof found.additional_context === "string") {
+        result.additional_context = typeof result.additional_context === "string" ? `${result.additional_context}\n\n${found.additional_context}` : found.additional_context;
+      }
+    }
     if (profile.channels) {
       let event: unknown = null;
       try { event = JSON.parse(input); } catch { /* 単発配送と同じく、読めない入力には何も返さない */ }
@@ -81,7 +91,7 @@ export async function runCursorHookMain(profile: ProductProfile, root: string = 
 }
 
 /** Cursor親の背景受信。 */
-export async function runCursorReceiveMain(profile: ProductProfile, argv: string[] = process.argv.slice(2), root: string = cursorHookRoot(profile)): Promise<void> {
+export async function runCursorReceiveMain(profile: ProductProfile, argv: string[] = process.argv.slice(2), root: string | readonly string[] = cursorHookRoot(profile)): Promise<void> {
   const emit = (value: unknown) => { process.stdout.write(JSON.stringify(value) + "\n"); };
   try {
     process.exitCode = await runCursorReceive(root, argv, emit);

@@ -1,5 +1,7 @@
 // Cursor親がidleのとき、背景で起動して回答本文の到着を待つ受け口。
 // 起動するファイルは製品が同梱する入口で、そこからrunCursorReceiveを呼ぶ。
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { receiveCursorAnswer } from "./cursor-receiver.js";
 import { windowsStartProcessArgumentList } from "./windows.js";
 
@@ -19,9 +21,10 @@ export function cursorReceiveProcess(script: string, deliveryId: string, executa
   };
 }
 
-/** 受信入口の本体。結果を1行のJSONでstdoutへ出し、exit codeを返す（0=受取、3=期限切れ、1=誤り）。 */
+/** 受信入口の本体。結果を1行のJSONでstdoutへ出し、exit codeを返す（0=受取、3=期限切れ、1=誤り）。
+ * hookRootを複数渡すと、配送記録のある置き場で待つ（runCursorHookMainと同じ理由）。どこにも無ければ先頭の置き場で誤りを返す。 */
 export async function runCursorReceive(
-  hookRoot: string,
+  hookRoot: string | readonly string[],
   argv: string[],
   emit: (value: unknown) => void = value => { process.stdout.write(JSON.stringify(value) + "\n"); },
   usage = "usage: cursor-parent-receive --delivery <uuid>",
@@ -30,7 +33,10 @@ export async function runCursorReceive(
     emit({ ok: false, code: "CURSOR_PARENT_RECEIVE_USAGE", message: usage });
     return 1;
   }
-  const result = await receiveCursorAnswer(hookRoot, argv[1]);
+  const roots = typeof hookRoot === "string" ? [hookRoot] : [...hookRoot];
+  const root = roots.find(each => fs.existsSync(path.join(each, "deliveries", argv[1]))) ?? roots[0];
+  if (root === undefined) throw new Error("受信の置き場がありません");
+  const result = await receiveCursorAnswer(root, argv[1]);
   if (result.outcome === "timeout") {
     emit({ delivery_id: argv[1], outcome: "timeout" });
     return 3;

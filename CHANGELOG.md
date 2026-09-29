@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.1.8
+
+- `runCursorHookMain`・`runCursorReceiveMain`・`runCursorReceive`が置き場を複数受け取れる。Cursor CLIはMCPを削った環境（XDG_RUNTIME_DIR・TMPDIR等が無い）で起動し、hookと背景processは画面側の環境で起動する。環境から置き場を決める製品（Aiterm）はMCPとhookで置き場が割れ、hookが配送記録を見つけられずに何もしていなかった（rabbit・macbookで確認）。hookは渡した置き場それぞれで結び付けと差し込みを行い、受信は配送記録のある置き場で待つ。配送記録の無い置き場には何も作らない。
 ## 0.1.7
 
 - WindowsのCursor（cursor-agent 2026.09.28）はhookのstdinのJSONの先頭にBOM（U+FEFF）を付ける。`handleCursorHook`がそのまま読んで失敗し、会話への結び付けも作業中の差し込みも起きず、配送は`sending`のまま止まっていた（紅蓮氏の報告、foxで確認）。hook入口の読み取り（Codex・Claude Code・Cursor共通）と`handleCursorHook`で先頭のBOMを落とす。`withoutBom`も公開する。
