@@ -32,9 +32,40 @@ test('Windowsの表記ゆれ（区切り・大文字小文字・引用符）も�
   assert.equal(hooks.PostToolUse[0].hooks[0].command, config.command);
 });
 
-test('Linuxでは有効にせず、公式キューだけの配送のまま unsupported を返す', async t => {
-  const root = fresh(t);
-  assert.deepEqual(await configureCodexSteer(profile(root), 'enable', { hook: join(root, 'h.js'), platform: 'linux', legacy: () => null }), { status: 'unsupported', reason_code: 'codex_steer_platform_unsupported' });
+test('LinuxでもSteerを有効にできる（Desktopが無ければCodex CLI）', async t => {
+  const root = fresh(t), home = join(root, 'codex'); mkdirSync(home);
+  const hook = join(root, 'demo-codex-hook.js'); writeFileSync(hook, '');
+  const result = await configureCodexSteer(profile(root), 'enable', { hook, platform: 'linux', codex_home: home, node: process.execPath,
+    findBinary: () => '/home/u/.local/bin/codex', processes: () => [], legacy: () => null, verify: async () => {} });
+  assert.deepEqual(result, { status: 'ready' });
+  assert.equal(readCodexHookConfig(profile(root)).binary, '/home/u/.local/bin/codex');
+});
+
+test('Desktopが見つからなければCodex CLIを使い、どちらも無ければDesktopの理由で断る', async () => {
+  const { findSteerBinary, SetupError } = await import('../dist/index.js');
+  const missing = () => { throw new SetupError('codex_desktop_not_identified', 'no desktop'); };
+  assert.equal(findSteerBinary(() => '/Applications/Codex.app/codex', () => assert.fail('CLIは使わない')), '/Applications/Codex.app/codex');
+  assert.equal(findSteerBinary(missing, () => '/opt/homebrew/bin/codex'), '/opt/homebrew/bin/codex');
+  assert.throws(() => findSteerBinary(missing, () => { throw new SetupError('codex_binary_unavailable', 'none'); }), error => error.code === 'codex_desktop_not_identified');
+  assert.throws(() => findSteerBinary(missing, () => { throw new SetupError('codex_version_unsupported', 'old'); }), error => error.code === 'codex_version_unsupported');
+});
+
+test('npm版のCodex CLI（node …/codex.js とnative本体）も再起動待ちとして照合する', async t => {
+  const root = fresh(t), home = join(root, 'codex'); mkdirSync(home);
+  const hook = join(root, 'demo-codex-hook.js'); writeFileSync(hook, '');
+  const pkg = join(root, 'lib', 'node_modules', '@openai', 'codex'); mkdirSync(join(pkg, 'bin'), { recursive: true });
+  writeFileSync(join(pkg, 'bin', 'codex.js'), '');
+  const { symlinkSync } = await import('node:fs');
+  mkdirSync(join(root, 'bin')); symlinkSync(join(pkg, 'bin', 'codex.js'), join(root, 'bin', 'codex'));
+  const rows = [
+    { pid: 21, started_identity: 'a', parent_pid: 1, command: `node ${join(pkg, 'bin', 'codex.js')} resume` },
+    { pid: 22, started_identity: 'b', parent_pid: 21, command: `${join(pkg, 'node_modules', '@openai', 'codex-linux-x64', 'vendor', 'x', 'codex', 'codex')}` },
+    { pid: 23, started_identity: 'c', parent_pid: 1, command: 'node /other/tool.js' },
+  ];
+  const result = await configureCodexSteer(profile(root), 'enable', { hook, platform: 'linux', codex_home: home, node: process.execPath,
+    findBinary: () => join(root, 'bin', 'codex'), processes: () => rows, legacy: () => null, verify: async () => {} });
+  assert.equal(result.status, 'restart_required');
+  assert.deepEqual(readCodexHookConfig(profile(root)).stale_processes.map(row => row.pid), [21, 22]);
 });
 
 test('導入前から動くCodexを、引用符付きと旧方式の実行ファイルも含めて再起動待ちにする', async t => {

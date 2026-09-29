@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+- CodexのSteer（作業中のturnへの差し込み）を、Codex Desktopの無い端末とLinuxにも広げた（指揮官氏の判断 2026-09-29）。公式Desktopの同梱CLI（macOS・Windows・Linux）を先に探し、無ければ通常のCodex CLI（0.154以上）を使う。以前はmacOS・WindowsのDesktopだけで、Linuxは`unsupported`だった。
+- 使っていたCodexが更新で消えた時の探し直しも、同じ順（Desktop、無ければCLI）で行う。
+- npm版のCodex CLI（`node …/codex.js`とその中のnative本体）も、導入前から動いている「再起動が要るCodex」として照合する。
+
 ## 0.1.1
 
 - Codex hookの解除（disable）で、自製品のhookのまとまりを抜くと後ろの他製品・利用者のhookの位置がずれ、Codexが位置の鍵で持つ承認と合わなくなって「modified」になり動かなくなっていた（紅蓮氏の報告、macbookでgrokbot-bridgeとpeertableのhookが止まった）。位置が動くhookの承認（trusted_hash・enabled）を、hooks.jsonを書き換える前に新しい位置へ写し、書き換え後に空いた位置の承認を消す。承認を新たに与えたり外したりはしない。公式Codexで確かめる試験を加えた。

@@ -9,7 +9,7 @@ This is the delivery [Aiterm](https://github.com/kitepon/aiterm-mcp) uses to han
 
 | Parent | How the parent is identified | How text arrives |
 | --- | --- | --- |
-| Codex | `_meta.threadId` of the MCP request | Official App Server queue (`thread/queue/add`). On macOS/Windows your sync `PostToolUse`/`Stop` hooks pull it into the running turn; otherwise the official queue delivers it at the next turn boundary. |
+| Codex | `_meta.threadId` of the MCP request | Official App Server queue (`thread/queue/add`). With Steer enabled, your sync `PostToolUse`/`Stop` hooks pull it into the running turn; otherwise the official queue delivers it at the next turn boundary. |
 | Claude Code | Your `PreToolUse` hook record + `_meta["claudecode/toolUseId"]` | An `asyncRewake` hook writes the text to stderr and exits 2, waking the session (or steering into the running turn). |
 | Cursor | Your hook binds the id in your tool result to the real `conversation_id` | `additional_context` on the next tool return while busy; a background receiver process while idle. |
 | Others (Grok, …) | — | A background receiver process (`wait_process`). |
@@ -64,7 +64,7 @@ import { PROFILE } from "./profile.mjs";
 await runClaudeHookMain(PROFILE);
 ```
 
-Register them with `mergeClaudeParentHooks`, `mergeCursorParentHooks`, and `configureCodexSteer` (Codex Steer hooks are macOS/Windows, same as Aiterm).
+Register them with `mergeClaudeParentHooks`, `mergeCursorParentHooks`, and `configureCodexSteer`. Codex Steer uses the Codex Desktop's bundled CLI when present (macOS, Windows, Linux) and otherwise the regular Codex CLI (0.154+).
 
 ## Non-Node products
 

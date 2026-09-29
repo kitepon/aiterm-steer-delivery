@@ -1,5 +1,5 @@
 // Codexの実行ファイルとCODEX_HOMEの解決。Desktopが同梱するCLIは更新のたびに場所が変わることがあるので、
-// setupで保存した場所が消えていたら、使う時点で公式Desktopから探し直す。探せなければ理由付きで止め、別のCodexへは切り替えない。
+// setupで保存した場所が消えていたら、使う時点で同じ順（公式Desktop、無ければCodex CLI）で探し直す。探せなければ理由付きで止める。
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import * as fs from "node:fs";
@@ -153,10 +153,51 @@ Join-Path $packages[0].InstallLocation 'app/resources'`,
   return value;
 }
 
+/** CLIが対応する最低版（公式キューとhookの取込み）。 */
+function assertSteerVersion(executable: string, subject: string): void {
+  const result = spawnSync(executable, ["--version"], { encoding: "utf8", windowsHide: true, timeout: 15_000 });
+  if (result.error || result.status !== 0) throw new SetupError("codex_binary_unavailable", `${subject}を起動できません`);
+  const match = /codex-cli (\d+)\.(\d+)\.(\d+)/.exec(result.stdout ?? "");
+  if (!match || (Number(match[1]) === 0 && Number(match[2]) < 154)) {
+    throw new SetupError("codex_version_unsupported", `Steerには公式キューとhookに対応するCodex CLI 0.154以上が必要です（${subject}）`);
+  }
+}
+
+/** Linuxの公式Codex Desktop（deb・rpm）が同梱するCLI。 */
+export function findLinuxDesktopBinary(candidates = ["/usr/lib/chatgpt/resources/codex", "/opt/ChatGPT/resources/codex"]): string {
+  const found = candidates.filter(file => fs.existsSync(file));
+  if (found.length !== 1) throw new SetupError("codex_desktop_not_identified", "Codex Desktopのインストール先を一つに特定できません");
+  assertSteerVersion(found[0], "Codex Desktopの同梱CLI");
+  return found[0];
+}
+
+/** Desktopの無い端末で使う、通常のCodex CLI。 */
+export function findCliBinary(resolve: () => string | null = resolveCodexExecutable): string {
+  const binary = resolve();
+  if (!binary) throw new SetupError("codex_binary_unavailable", "Codex DesktopもCodex CLIも見つかりません");
+  assertSteerVersion(binary, "Codex CLI");
+  return binary;
+}
+
 export type DesktopBinaryFinder = () => string;
 
-export function platformDesktopFinder(): DesktopBinaryFinder {
-  return process.platform === "win32" ? findWindowsCodexBinary : findDesktopBinary;
+export function platformDesktopFinder(platform = process.platform): DesktopBinaryFinder {
+  return platform === "win32" ? findWindowsCodexBinary : platform === "darwin" ? findDesktopBinary : findLinuxDesktopBinary;
+}
+
+/**
+ * Steerのhookが公式キューを操作するのに使うCodex。公式Desktopの同梱CLIを先に探し、Desktopが無ければ
+ * 通常のCodex CLIを使う（どちらも同じ公式キューとhookを持つ）。
+ */
+export function findSteerBinary(desktop: DesktopBinaryFinder = platformDesktopFinder(), cli: () => string = () => findCliBinary()): string {
+  try { return desktop(); }
+  catch (desktopError) {
+    try { return cli(); }
+    catch (cliError) {
+      if (cliError instanceof SetupError && cliError.code === "codex_binary_unavailable" && desktopError instanceof SetupError) throw desktopError;
+      throw cliError;
+    }
+  }
 }
 
 export async function currentCodexDesktopBinary(
@@ -168,7 +209,7 @@ export async function currentCodexDesktopBinary(
   if (exists(config.binary)) return config.binary;
   let binary: string;
   try {
-    binary = (options.find ?? platformDesktopFinder())();
+    binary = (options.find ?? (() => findSteerBinary()))();
   } catch (error) {
     throw new CodexDeliveryError("CODEX_DESKTOP_BINARY_MOVED",
       `Codex Desktopの更新で ${config.binary} が無くなり、新しい場所も特定できません（${error instanceof Error ? error.message : String(error)}）。` +

@@ -9,7 +9,7 @@ export { setupNodeExecutable } from "./setup-node.js";
 
 export {
   realCodexHome, resolveCodexExecutable, desktopBundledCodex, findDesktopBinary, findWindowsCodexCache,
-  findWindowsCodexBinary, platformDesktopFinder, currentCodexDesktopBinary, type DesktopBinaryFinder,
+  findWindowsCodexBinary, findLinuxDesktopBinary, findCliBinary, findSteerBinary, platformDesktopFinder, currentCodexDesktopBinary, type DesktopBinaryFinder,
 } from "./codex-binary.js";
 export {
   codexHookConfigSchema, readCodexHookConfig, codexInputDirectory, hookInputSchema, answerDigest,

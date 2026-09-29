@@ -2,7 +2,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { isDeepStrictEqual } from "node:util";
-import { currentCodexDesktopBinary, platformDesktopFinder, realCodexHome } from "./codex-binary.js";
+import { currentCodexDesktopBinary, findSteerBinary, realCodexHome } from "./codex-binary.js";
 import { withCodexReceiver } from "./codex-receiver.js";
 import { SetupError } from "./errors.js";
 import { setupNodeExecutable } from "./setup-node.js";
@@ -164,7 +164,7 @@ export async function configureCodexSteer(profile: ProductProfile, action: Codex
   overrides: Partial<CodexSteerRuntime> & { hook: string }): Promise<CodexSteerResult> {
   const directory = overrides.directory ?? codexHookDirectory(profile);
   const runtime: CodexSteerRuntime = { platform: process.platform, directory, codex_home: realCodexHome(),
-    node: process.execPath, findBinary: platformDesktopFinder(),
+    node: process.execPath, findBinary: () => findSteerBinary(),
     processes: readRuntimeProcesses, legacy: () => null,
     disableLegacy: async () => ({ status: "disabled" }), verify: (config, approve) => verifyCodexHookRegistration(profile, config, approve, directory),
     prepareDirectory: () => undefined, powershell: () => resolveWindowsPowerShell7(), ...overrides };
@@ -189,7 +189,6 @@ export async function configureCodexSteer(profile: ProductProfile, action: Codex
     if (legacy?.enabled) return runtime.disableLegacy();
     return previous?.enabled ? { status: "restart_required", reason_code: "codex_restart_required" } : { status: "disabled" };
   }
-  if (!["darwin", "win32"].includes(runtime.platform)) return { status: "unsupported", reason_code: "codex_steer_platform_unsupported" };
   if (previous?.enabled && fs.realpathSync(previous.codex_home) !== fs.realpathSync(runtime.codex_home)) throw new SetupError("codex_steer_configuration_conflict", "別のCODEX_HOMEでSteerが有効です。先に既存の選択を解除してください");
   const node = setupNodeExecutable(runtime.node);
   fs.accessSync(node, fs.constants.X_OK); fs.accessSync(runtime.hook, fs.constants.R_OK);
@@ -199,13 +198,21 @@ export async function configureCodexSteer(profile: ProductProfile, action: Codex
   // hook導入前から動いているCodexを再起動待ちとして記録する。今のDesktop、前回の登録、旧方式が起動したCodexを、
   // 引用符付きのコマンド行も含めて照合する（Windowsは区切りと大文字小文字を揃える）。
   const normalize = (value: string) => runtime.platform === "win32" ? value.replaceAll("/", "\\").toLowerCase() : value;
+  // npm版のCodex CLIは `node …/@openai/codex/bin/codex.js` と、その中のnative本体として動く。実体のpackageも照合する。
+  const packageRoot = (file: string) => {
+    let real = file;
+    try { real = fs.realpathSync(file); } catch { /* 無ければそのまま */ }
+    return /[\\/]bin[\\/]codex\.js$/u.test(real) ? path.dirname(path.dirname(real)) : null;
+  };
+  const roots = [binary, legacy?.binary, previous?.binary].filter((value): value is string => !!value).flatMap(file => packageRoot(file) ?? []).map(normalize);
   const binaries = [binary, legacy?.binary, previous?.binary].filter((value): value is string => !!value).map(normalize);
   const stale = !previous?.enabled || changed || legacy?.enabled
     ? runtime.processes().filter(row => binaries.some(candidate => {
       const command = normalize(row.command);
       return (row.executable !== undefined && normalize(row.executable) === candidate) || command === candidate || command === `"${candidate}"`
         || command.startsWith(candidate + " ") || command.startsWith(`"${candidate}" `);
-    })).map(({ pid, started_identity }) => ({ pid, started_identity }))
+    }) || roots.some(root => normalize(row.command).includes(root + (runtime.platform === "win32" ? "\\" : "/"))))
+      .map(({ pid, started_identity }) => ({ pid, started_identity }))
     : previous.stale_processes;
   const config: CodexHookConfig = { schema: profile.codex_hook_schema, enabled: true,
     codex_home: runtime.codex_home, binary, command, node, hook: runtime.hook, stale_processes: stale };
