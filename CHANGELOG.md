@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.5
+
+- Steerの導入で「再起動が要るCodex」を数える時、別のCODEX_HOMEで動くCodex（同じ端末の他の利用者やBot）まで数えていた（紅蓮氏の報告）。Linuxではprocessの環境からCODEX_HOME（無ければHOME/.codex）を読み、hookを入れた場所のものだけを数える。macOS・Windowsは他processの環境を読めないので、今までどおり数える。
+
 ## 0.1.4
 
 - CodexのSteerのhookを外した後、自製品のhookが居た位置の承認記録（`hooks.state`の`trusted_hash`・`enabled`）が`config.toml`に残っていた（ラプンツェル氏の報告）。他のhookが入らずに空いた位置の記録を消す。別のfileや他の位置の記録は触らない。記録の後片付けが公式APIの都合でできなくても、hookの解除そのものは止めない。

@@ -93,3 +93,24 @@ test('導入前から動くCodexを、引用符付きと旧方式の実行ファ
   assert.equal(hooks.PostToolUse[0].hooks[0].command, config.command);
   assert.equal(hooks.Stop[0].hooks[0].command, config.command);
 });
+
+test('再起動待ちは、hookを入れたCODEX_HOMEで動くCodexだけにする（環境が読めないものは数える）', async t => {
+  const root = fresh(t), home = join(root, 'codex'); mkdirSync(home);
+  const hook = join(root, 'demo-codex-hook.js'); writeFileSync(hook, '');
+  const binary = '/usr/local/bin/codex';
+  const rows = [1, 2, 3].map(pid => ({ pid, started_identity: String(pid), parent_pid: 1, command: `${binary} app-server` }));
+  const homes = { 1: home, 2: join(root, 'other-bot', '.codex'), 3: null };
+  const result = await configureCodexSteer(profile(root), 'enable', { hook, platform: 'linux', codex_home: home, node: process.execPath,
+    findBinary: () => binary, processes: () => rows, legacy: () => null, verify: async () => {}, codexHomeOf: pid => homes[pid] });
+  assert.equal(result.status, 'restart_required');
+  assert.deepEqual(readCodexHookConfig(profile(root)).stale_processes.map(row => row.pid), [1, 3]);
+});
+
+test('Linuxのprocessの環境からCODEX_HOMEを読み、無ければHOME/.codexとする', async () => {
+  const { processCodexHome } = await import('../dist/index.js');
+  const env = entries => () => Buffer.from(entries.join('\0') + '\0');
+  assert.equal(processCodexHome(1, 'linux', env(['HOME=/home/a', 'CODEX_HOME=/srv/x/.codex'])), '/srv/x/.codex');
+  assert.equal(processCodexHome(1, 'linux', env(['HOME=/home/a'])), '/home/a/.codex');
+  assert.equal(processCodexHome(1, 'linux', () => { throw new Error('EACCES'); }), null);
+  assert.equal(processCodexHome(1, 'darwin', env(['HOME=/Users/a'])), null);
+});

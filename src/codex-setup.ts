@@ -175,7 +175,25 @@ export type CodexSteerRuntime = {
   prepareDirectory: (directory: string) => void;
   /** Windowsでhookを起動するPowerShell 7の絶対path。 */
   powershell: () => string;
+  /** processが使うCODEX_HOME。読めなければnull（その時は再起動待ちに数える）。 */
+  codexHomeOf: (pid: number) => string | null;
 };
+
+/**
+ * processの環境変数からCODEX_HOME（無ければHOME/.codex）を読む。Linuxの /proc だけで読める。
+ * macOSとWindowsは他processの環境を読めないのでnull。
+ */
+export function processCodexHome(pid: number, platform = process.platform, read: (file: string) => Buffer = file => fs.readFileSync(file)): string | null {
+  if (platform !== "linux") return null;
+  let raw: Buffer;
+  try { raw = read(`/proc/${pid}/environ`); } catch { return null; }
+  const env = new Map(raw.toString("utf8").split("\0").filter(Boolean).map(entry => {
+    const index = entry.indexOf("=");
+    return [entry.slice(0, index), entry.slice(index + 1)] as [string, string];
+  }));
+  const home = env.get("CODEX_HOME") || (env.get("HOME") ? path.join(env.get("HOME")!, ".codex") : null);
+  return home ? path.resolve(home) : null;
+}
 
 export async function verifyCodexHookRegistration(profile: ProductProfile, config: CodexHookConfig, approve: boolean, directory = codexHookDirectory(profile)): Promise<void> {
   fs.accessSync(config.node, fs.constants.X_OK); fs.accessSync(config.hook, fs.constants.R_OK);
@@ -206,7 +224,7 @@ export async function configureCodexSteer(profile: ProductProfile, action: Codex
     node: process.execPath, findBinary: () => findSteerBinary(),
     processes: readRuntimeProcesses, legacy: () => null,
     disableLegacy: async () => ({ status: "disabled" }), verify: (config, approve) => verifyCodexHookRegistration(profile, config, approve, directory),
-    prepareDirectory: () => undefined, powershell: () => resolveWindowsPowerShell7(), ...overrides };
+    prepareDirectory: () => undefined, powershell: () => resolveWindowsPowerShell7(), codexHomeOf: pid => processCodexHome(pid), ...overrides };
   const previous = readCodexHookConfig(profile, runtime.directory);
   const legacy = runtime.legacy();
   const file = path.join(action === "disable" && previous ? previous.codex_home : runtime.codex_home, "hooks.json");
@@ -253,6 +271,11 @@ export async function configureCodexSteer(profile: ProductProfile, action: Codex
         || command.startsWith(candidate + " ") || command.startsWith(`"${candidate}" `)
         || command.endsWith(" " + candidate) || command.includes(` ${candidate} `) || command.includes(` "${candidate}"`);
     }) || roots.some(root => normalize(row.command).includes(root + (runtime.platform === "win32" ? "\\" : "/"))))
+      // 別のCODEX_HOMEで動くCodex（同じ端末の他の利用者やBot）は、このhookを読まないので再起動を求めない。
+      .filter(row => {
+        const home = runtime.codexHomeOf(row.pid);
+        return home === null || samePath(home, runtime.codex_home);
+      })
       .map(({ pid, started_identity }) => ({ pid, started_identity }))
     : previous.stale_processes;
   const config: CodexHookConfig = { schema: profile.codex_hook_schema, enabled: true,

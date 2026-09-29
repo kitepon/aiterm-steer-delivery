@@ -22,7 +22,7 @@ export {
 } from "./codex-receiver.js";
 export { runCodexResultHook } from "./codex-hooks.js";
 export {
-  codexHookCommand, mergeCodexParentHooks, planCodexParentHooks, writeCodexHookPlan, applyCodexHookPlan, verifyCodexHookRegistration, configureCodexSteer,
+  codexHookCommand, processCodexHome, mergeCodexParentHooks, planCodexParentHooks, writeCodexHookPlan, applyCodexHookPlan, verifyCodexHookRegistration, configureCodexSteer,
   type CodexHookMove, type CodexHookPlan,
   type CodexSteerAction, type CodexSteerResult, type CodexSteerRuntime,
 } from "./codex-setup.js";
