@@ -1,50 +1,74 @@
 # aiterm-steer-delivery
 
-Aiterm's steer delivery as a library. Your MCP server can deliver text to the **parent AI session that called it**:
+[![CI](https://github.com/kitepon/aiterm-steer-delivery/actions/workflows/ci.yml/badge.svg)](https://github.com/kitepon/aiterm-steer-delivery/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/aiterm-steer-delivery.svg)](https://www.npmjs.com/package/aiterm-steer-delivery)
+[![node](https://img.shields.io/node/v/aiterm-steer-delivery)](https://nodejs.org)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+**Let your MCP server talk back to the AI session that called it.**
+
+[日本語版 README](README.ja.md)
+
+Your MCP server can deliver text to the **parent AI session that called its tool**, even after the tool call has returned:
 
 - if the parent is busy, the text is steered into its running turn;
 - if the parent is idle, it arrives in the same conversation as a normal new turn.
 
-This is the delivery [Aiterm](https://github.com/kitepon/aiterm-mcp) uses to hand a sub-agent's answer back to its parent. It was extracted from Aiterm without changing behavior, so products no longer have to rebuild conversation correlation, hook registration, and OS quirks each time.
+Works with Codex, Claude Code, and Cursor. Other clients (Grok and so on) receive through a background process. Linux, macOS, and Windows.
+
+## Why
+
+If you run many AI sessions at once, the useful work often happens between them: a sub-agent finishes and its parent should hear about it, or one session posts in a shared room and another should react. A tool call returns once. Anything that happens later has nowhere to go unless the parent comes back and asks.
+
+Delivering that later text to the right conversation is the hard part:
+
+- **Which conversation?** Each client identifies the calling conversation differently, and some only through their hooks. Values that look usable, such as a session id in the environment, go stale after `/clear`.
+- **How does text get in?** Each client has its own official mechanism (a queue, async hooks, hook output, a background process), with its own setup and its own failure modes.
+- **OS quirks.** Process identity, shells, PowerShell quoting, BOMs in hook input, different `CODEX_HOME`s on the same machine.
+
+This package is the delivery [Aiterm](https://github.com/kitepon/aiterm-mcp) uses to hand a sub-agent's answer back to its parent. It was extracted from Aiterm without changing behavior, so other products do not have to rebuild conversation correlation, hook registration, and OS handling every time.
+
+## Used by
+
+| Product | What it delivers |
+| --- | --- |
+| [Aiterm](https://github.com/kitepon/aiterm-mcp) | A sub-agent's final answer, back to the session that launched it |
+| [Peertable](https://github.com/kitepon/peertable) | Room messages and direct messages, to the owner's own session sitting beside the table |
+| [gpt-connector](https://github.com/kitepon/gpt-connector) | A ChatGPT reply, back into the Codex thread that asked for it |
+
+## How it works
 
 | Parent | How the parent is identified | How text arrives |
 | --- | --- | --- |
 | Codex | `_meta.threadId` of the MCP request | Official App Server queue (`thread/queue/add`). With Steer enabled, your sync `PostToolUse`/`Stop` hooks pull it into the running turn; otherwise the official queue delivers it at the next turn boundary. |
 | Claude Code | Your `PreToolUse` hook record + `_meta["claudecode/toolUseId"]` | An `asyncRewake` hook writes the text to stderr and exits 2, waking the session (or steering into the running turn). |
-| Cursor | Your hook binds the id in your tool result to the real `conversation_id` | `additional_context` on the next tool return while busy; a background receiver process while idle. |
+| Cursor (Desktop and CLI) | Your hook binds the id in your tool result to the real `conversation_id` | `additional_context` on the next tool return while busy; a background receiver process while idle. |
 | Others (Grok, …) | — | A background receiver process (`wait_process`). |
 
-Delivery never auto-retries a send whose outcome is unknown (`outcome_unknown` / `unknown`).
+Every route uses the client's official mechanism. Nothing types into a terminal or patches the client.
 
-## Two ways to deliver
+**Delivery never auto-retries a send whose outcome is unknown.** If the library cannot confirm whether text reached the parent, it reports `outcome_unknown` (or the channel state `unknown`) and leaves the decision to you, so the parent never gets the same message twice by accident.
 
-**One answer per request** (what Aiterm does): identify the parent from the MCP request, bind a delivery id, and submit the final text once.
+## Install
 
-```js
-import * as steer from "aiterm-steer-delivery";
-
-const parent = steer.codexParentFromRequest(clientName, request.params._meta);
-await steer.verifyCodexParent(PROFILE, parent);
-const { queued_submission_id } = await steer.submitCodexParentAnswer(PROFILE, parent, deliveryId, text);
+```sh
+npm install aiterm-steer-delivery
 ```
 
-**Many messages to one conversation** (channels, e.g. Peertable's room messages to the parent):
+Requirements:
 
-```js
-const channel = steer.openChannel(PROFILE, parent);          // parent from the request; null for background-only
-await steer.sendToChannel(PROFILE, channel.channel_id, randomUUID(), text);
-steer.channelDeliveryState(PROFILE, channel.channel_id, id); // queued | sending | emitted | unknown | withdrawn
-```
+- Node.js 18 or later. ESM only. The only runtime dependency is `zod`.
+- Codex Steer (delivery into a running Codex turn) uses the Codex Desktop's bundled CLI when present (macOS, Windows, Linux), and otherwise the regular Codex CLI 0.154 or later.
+- On Windows, Codex Steer hooks run through PowerShell 7 (`pwsh.exe`).
 
-Claude Code re-arms its waiter at every `Stop`. Cursor binds the channel with `steer.channelMarker(channel)` placed in your tool result, and idle Cursor/Grok parents run `steer.channelReceiveProcess(...)` in the background; each result carries `next_wait_process` to re-arm.
+## Quick start
 
-Put both the marker and the receiver command in the **text** of your tool result, not only in `structuredContent`: the Cursor CLI model does not read structured content. `steer.waitProcessCommandLine(steer.channelReceiveProcess(script, channel.channel_id))` gives the command as one shell line (POSIX sh, or PowerShell on Windows).
-
-## Product profile
+### 1. Write a product profile
 
 Everything product-specific lives in one object. The delivery mechanism is the same for every product.
 
 ```js
+// profile.mjs
 export const PROFILE = {
   id: "peertable", display_name: "Peertable",
   setup_command: "peertable parent connect", codex_steer_command: "peertable parent connect --target codex",
@@ -57,7 +81,23 @@ export const PROFILE = {
 };
 ```
 
-Hook entry files stay in your product (their names identify your hooks, so products never remove each other's hooks). Each is a two-line file:
+| Field | Meaning |
+| --- | --- |
+| `id` | Product id. Used in state schema names and to tell your hooks apart. |
+| `display_name` | Product name shown in error messages. |
+| `setup_command`, `codex_steer_command` | The commands your users run to set up delivery. Error messages point to them. |
+| `mcp_server` | Your MCP server's name as registered in the parent. Used for the Claude Code hook matcher and Cursor tool names. |
+| `dispatch_tools` | The tools whose calls deliver to the parent. Claude Code hooks attach only to these. |
+| `state_root` | Per-user runtime state for Claude Code and Cursor delivery records. |
+| `config_root` | Per-user persistent config for Codex hook settings and ownership records. |
+| `hooks` | File names of your hook entry files. They identify your hooks, so pick names no other product uses. |
+| `codex_client_name`, `codex_hook_schema` | The client name you present to the Codex App Server, and your Codex hook config schema name. |
+| `backup_suffix` | Suffix for the backup written before a config file is changed. |
+| `channels` | Set this only if you send many messages to one conversation. `claude_expiry_notice` is a short text that wakes Claude Code to re-arm its waiter before the 24-hour hook limit. |
+
+### 2. Ship the hook entry files
+
+Hook entry files stay in your product, because their names identify your hooks and keep products from removing each other's hooks. Each is a two-line file:
 
 ```js
 #!/usr/bin/env node
@@ -66,12 +106,92 @@ import { PROFILE } from "./profile.mjs";
 await runClaudeHookMain(PROFILE);
 ```
 
-Register them with `mergeClaudeParentHooks`, `mergeCursorParentHooks`, and `configureCodexSteer`. Codex Steer uses the Codex Desktop's bundled CLI when present (macOS, Windows, Linux) and otherwise the regular Codex CLI (0.154+).
+Use `runCodexHookMain`, `runClaudeHookMain`, and `runCursorHookMain` for the three hook files. Background receivers use `runCursorReceiveMain` (one answer) or `runChannelReceiveMain` (channels).
+
+### 3. Register the hooks
+
+In your setup command:
+
+- `mergeClaudeParentHooks(PROFILE, settingsFile, { command: nodePath, script: hookPath })` for Claude Code,
+- `mergeCursorParentHooks(PROFILE, hooksFile, { command: nodePath, script: hookPath })` for Cursor,
+- `configureCodexSteer(PROFILE, "enable", { hook: hookPath })` for Codex.
+
+They keep other products' and the user's hooks and their order, and back up the file before writing. `removeClaudeParentHooks`, `removeCursorParentHooks`, and `configureCodexSteer(PROFILE, "disable", …)` undo them. `configureCodexSteer` returns `restart_required` when Codex processes that started before the hooks were installed are still running.
+
+### 4. Deliver
+
+There are two ways to deliver.
+
+**One answer per request** (what Aiterm does): identify the parent from the MCP request, bind a delivery id, and submit the final text once.
+
+```js
+import * as steer from "aiterm-steer-delivery";
+
+const parent = steer.codexParentFromRequest(clientName, request.params._meta);
+await steer.verifyCodexParent(PROFILE, parent);
+const { queued_submission_id } = await steer.submitCodexParentAnswer(PROFILE, parent, deliveryId, text);
+```
+
+Claude Code and Cursor follow the same shape with `claudeParentFromRequest` / `bindClaudeParentDelivery` / `submitClaudeParentAnswer` and `cursorParentFromRequest` / `prepareCursorDelivery` / `submitCursorParentAnswer`. Each `…ParentFromRequest` returns `null` when the caller is a different client, so you can try them in turn. For Cursor, put the delivery id in your tool result, as `parent_delivery: { delivery_id }` in `structuredContent` and as a `delivery_id=<uuid>` line in the text, so the hook can bind it to the conversation.
+
+**Many messages to one conversation** (channels, e.g. Peertable's room messages to the parent):
+
+```js
+const channel = steer.openChannel(PROFILE, parent);          // parent from the request; null for background-only
+await steer.sendToChannel(PROFILE, channel.channel_id, randomUUID(), text);
+steer.channelDeliveryState(PROFILE, channel.channel_id, id); // queued | sending | emitted | unknown | withdrawn
+```
+
+Claude Code re-arms its waiter at every `Stop`. Cursor binds the channel with `steer.channelMarker(channel)` placed in your tool result, and idle Cursor/Grok parents run `steer.channelReceiveProcess(...)` in the background; each result carries `next_wait_process` to re-arm. `withdrawFromChannel` takes back text no receiver has claimed yet, so you can resend it on a new channel; `closeChannel` ends one.
+
+Put both the marker and the receiver command in the **text** of your tool result, not only in `structuredContent`: the Cursor CLI model does not read structured content. `steer.waitProcessCommandLine(steer.channelReceiveProcess(script, channel.channel_id))` gives the command as one shell line (POSIX sh, or PowerShell on Windows).
+
+## Errors and delivery states
+
+Delivery errors are `SteerDeliveryError` (`CodexDeliveryError`, `ClaudeDeliveryError`, `CursorDeliveryError`, `ChannelError`) with:
+
+- `delivery_code`: a stable reason, for example `CLAUDE_PARENT_HOOK_UNAVAILABLE` or `CHANNEL_CLOSED`;
+- `outcome_unknown`: `true` when the text may or may not have reached the parent. Do not resend automatically.
+
+Setup failures are `SetupError`, whose `code` becomes your setup result's `reason_code`.
+
+Channel delivery states:
+
+| State | Meaning |
+| --- | --- |
+| `queued` | Saved in the channel inbox; no receiver has taken it yet. |
+| `sending` | A receiver has claimed it and is writing it out. |
+| `emitted` | Written to the parent. |
+| `unknown` | The receiver stopped after claiming it; it may or may not have reached the parent. |
+| `withdrawn` | Taken back with `withdrawFromChannel` before any receiver claimed it. |
+
+On a Codex channel, `sendToChannel` returns `submitted` with the official queue's `queued_submission_id`, and `channelDeliveryState` returns `null`.
+
+Known limit: Claude Code sessions that carry an `agent_id` (started with `--agent`, or native subagents) are not supported as parents.
 
 ## Non-Node products
 
 `aiterm-steer-delivery --profile <profile.json> codex <parent|verify|submit|state|setup>` prints one JSON line. `state_root` and `config_root` are absolute paths in the JSON profile. `codex setup enable` registers the package's own Codex hook entry for your profile.
 
+```sh
+aiterm-steer-delivery --profile profile.json codex parent --client <name> --meta <json>
+aiterm-steer-delivery --profile profile.json codex verify --thread <uuid> [--codex-home <dir>]
+aiterm-steer-delivery --profile profile.json codex submit --thread <uuid> --delivery <uuid> --text-file <file|-> [--codex-home <dir>]
+aiterm-steer-delivery --profile profile.json codex state  --thread <uuid> --delivery <uuid> [--codex-home <dir>]
+aiterm-steer-delivery --profile profile.json codex setup  <enable|disable|status>
+```
+
+Success is `{"ok":true,...}`. Failure is `{"ok":false,"code":...,"message":...,"outcome_unknown":...}` with exit code 1.
+
+## Development
+
+```sh
+npm ci
+npm test   # builds with tsc, then runs node --test
+```
+
+CI runs the tests on Ubuntu, macOS, and Windows. Pushing a `v<version>` tag publishes to npm with provenance. Changes are listed in [CHANGELOG.md](CHANGELOG.md).
+
 ## License
 
-MIT
+[MIT](LICENSE)
