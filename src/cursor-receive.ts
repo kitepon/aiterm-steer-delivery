@@ -21,6 +21,16 @@ export function cursorReceiveProcess(script: string, deliveryId: string, executa
   };
 }
 
+/**
+ * 背景processの起動情報を、親のshellへ書ける1行にする（Windowsの既定shellはPowerShell）。
+ * Cursor CLIのmodelはtool結果のstructuredContentを読まないので、起動情報は本文にこの行で書く。
+ */
+export function waitProcessCommandLine(wait: { executable: string; args: readonly string[] }, platform: NodeJS.Platform = process.platform): string {
+  const values = [wait.executable, ...wait.args];
+  if (platform === "win32") return `& ${values.map(value => `'${value.replace(/'/g, "''")}'`).join(" ")}`;
+  return values.map(value => `'${value.replace(/'/g, "'\\''")}'`).join(" ");
+}
+
 /** 受信入口の本体。結果を1行のJSONでstdoutへ出し、exit codeを返す（0=受取、3=期限切れ、1=誤り）。
  * hookRootを複数渡すと、配送記録のある置き場で待つ（runCursorHookMainと同じ理由）。どこにも無ければ先頭の置き場で誤りを返す。 */
 export async function runCursorReceive(

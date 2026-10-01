@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.1.9
+
+- `waitProcessCommandLine`を公開する（Aitermから移した）。`cursorReceiveProcess`・`channelReceiveProcess`の起動情報を、親のshellへ書ける1行にする（POSIXはsh、Windowsは既定のPowerShell）。Cursor CLIのmodelはtool結果のstructuredContentを読まないので、Cursor・Grokの親には背景で受信を起動するコマンドをtool結果の本文に書く必要がある（ラプラス氏の依頼、決裁箱のコネクタで使う）。
 ## 0.1.8
 
 - `runCursorHookMain`・`runCursorReceiveMain`・`runCursorReceive`が置き場を複数受け取れる。Cursor CLIはMCPを削った環境（XDG_RUNTIME_DIR・TMPDIR等が無い）で起動し、hookと背景processは画面側の環境で起動する。環境から置き場を決める製品（Aiterm）はMCPとhookで置き場が割れ、hookが配送記録を見つけられずに何もしていなかった（rabbit・macbookで確認）。hookは渡した置き場それぞれで結び付けと差し込みを行い、受信は配送記録のある置き場で待つ。配送記録の無い置き場には何も作らない。

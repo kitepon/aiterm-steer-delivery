@@ -38,6 +38,8 @@ steer.channelDeliveryState(PROFILE, channel.channel_id, id); // queued | sending
 
 Claude Code re-arms its waiter at every `Stop`. Cursor binds the channel with `steer.channelMarker(channel)` placed in your tool result, and idle Cursor/Grok parents run `steer.channelReceiveProcess(...)` in the background; each result carries `next_wait_process` to re-arm.
 
+Put both the marker and the receiver command in the **text** of your tool result, not only in `structuredContent`: the Cursor CLI model does not read structured content. `steer.waitProcessCommandLine(steer.channelReceiveProcess(script, channel.channel_id))` gives the command as one shell line (POSIX sh, or PowerShell on Windows).
+
 ## Product profile
 
 Everything product-specific lives in one object. The delivery mechanism is the same for every product.

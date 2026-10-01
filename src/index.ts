@@ -36,7 +36,7 @@ export {
   cursorParentFromRequest, prepareCursorDelivery, submitCursorParentAnswer, handleCursorHook, receiveCursorAnswer,
   type CursorParent, type CursorReceiveResult,
 } from "./cursor-receiver.js";
-export { cursorReceiveProcess, runCursorReceive, type WaitProcess } from "./cursor-receive.js";
+export { cursorReceiveProcess, runCursorReceive, waitProcessCommandLine, type WaitProcess } from "./cursor-receive.js";
 export {
   claudeParentHookEntries, mergeClaudeParentHooks, removeClaudeParentHooks,
   cursorParentHookCommand, mergeCursorParentHooks, removeCursorParentHooks, type HookRuntime,
