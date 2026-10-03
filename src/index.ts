@@ -39,7 +39,7 @@ export {
 export { cursorReceiveProcess, runCursorReceive, waitProcessCommandLine, type WaitProcess } from "./cursor-receive.js";
 export {
   claudeParentHookEntries, mergeClaudeParentHooks, removeClaudeParentHooks,
-  cursorParentHookCommand, mergeCursorParentHooks, removeCursorParentHooks, type HookRuntime,
+  cursorParentHookCommand, mergeCursorParentHooks, removeCursorParentHooks, commandNamesFile, type HookRuntime,
 } from "./hook-setup.js";
 export { runCodexHookMain, runClaudeHookMain, runCursorHookMain, runCursorReceiveMain, isDirectExecution } from "./hook-main.js";
 export { runChannelReceiveMain } from "./hook-main.js";

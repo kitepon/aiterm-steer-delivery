@@ -43,6 +43,10 @@ export function mergeClaudeParentHooks(profile: ProductProfile, file: string, ho
     if (!Array.isArray(previous) || previous.some(group => !record(group) || !Array.isArray(group.hooks))) {
       throw new SetupError("config_invalid", `Claudeの${event} hook形式を読めません`);
     }
+    // 登録済みの中身が同じなら並びごと保つ。後から他製品が足したhookより後ろへ、自分のentryを移さない。
+    const owned = previous.flatMap(group => (group.hooks as unknown[]).filter(entry => isClaudeParentHook(profile, entry)));
+    if (owned.length === additions.flatMap(group => group.hooks).length
+      && additions.every(addition => previous.some(group => isDeepStrictEqual(group, addition)))) continue;
     // 他製品のhookとmatcherはそのまま保ち、当製品の専用entryだけを更新する。
     const retained = previous.map(group => ({ ...group, hooks: (group.hooks as unknown[]).filter(entry => !isClaudeParentHook(profile, entry))
     })).filter(group => group.hooks.length > 0);
@@ -108,8 +112,17 @@ export function cursorParentHookCommand(hook: HookRuntime): string {
   return process.platform === "win32" ? `& ${command}` : command;
 }
 
+/**
+ * commandが、その名前のfileを指しているか。名前の前はpathの区切りか引用符か空白、後ろは引用符か空白か末尾に限る。
+ * 部分一致で見ると、`cursor-parent-hook.js`が他製品の`gpt-connector-cursor-parent-hook.js`にも当たり、他製品のhookを消す。
+ */
+export function commandNamesFile(command: string, file: string): boolean {
+  const escaped = file.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(?:^|[\\\\/'"\\s])${escaped}(?:['"\\s]|$)`, "u").test(command);
+}
+
 function ownsCursorParentHook(profile: ProductProfile, hook: unknown): boolean {
-  return record(hook) && typeof hook.command === "string" && hook.command.includes(profile.hooks.cursor);
+  return record(hook) && typeof hook.command === "string" && commandNamesFile(hook.command, profile.hooks.cursor);
 }
 
 export function mergeCursorParentHooks(profile: ProductProfile, file: string, hook: HookRuntime): "configured" | "unchanged" {

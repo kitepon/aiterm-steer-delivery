@@ -7,6 +7,7 @@ import { z } from "zod";
 import { waitForFileState, withoutBom, writeJson0600 } from "./files.js";
 import { CursorDeliveryError } from "./errors.js";
 import type { ProductProfile } from "./profile.js";
+import { commandNamesFile } from "./hook-setup.js";
 
 export const cursorParentSchema = z.object({
   kind: z.literal("cursor"),
@@ -36,7 +37,7 @@ export function cursorParentHooksRegistered(profile: ProductProfile, document: u
     return Array.isArray(list) && list.some(entry => {
       if (entry === null || typeof entry !== "object") return false;
       const command = (entry as { command?: unknown }).command;
-      return typeof command === "string" && command.includes(profile.hooks.cursor);
+      return typeof command === "string" && commandNamesFile(command, profile.hooks.cursor);
     });
   };
   return owns("postToolUse") && owns("afterMCPExecution");

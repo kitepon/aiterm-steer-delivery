@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.10
+
+- Cursorのhookの持ち主を、名前の部分一致ではなくfile名の境目まで見て決める。Aitermの`cursor-parent-hook.js`が`gpt-connector-cursor-parent-hook.js`にも当たり、Aitermのsetupと解除がgpt-connectorのCursor hookを消していた（2026-10-03、main-server）。登録の確認（`cursorParentHooksRegistered`）も同じ見分けにした。`commandNamesFile`を公開する。
+- Claudeのhookが同じ中身で登録済みなら、並びを変えない。後から他の道具がhookを足した後にsetupを流すと、自製品のentryが末尾へ移ってfileが書き換わっていた。
+
 ## 0.1.9
 
 - `waitProcessCommandLine`を公開する（Aitermから移した）。`cursorReceiveProcess`・`channelReceiveProcess`の起動情報を、親のshellへ書ける1行にする（POSIXはsh、Windowsは既定のPowerShell）。Cursor CLIのmodelはtool結果のstructuredContentを読まないので、Cursor・Grokの親には背景で受信を起動するコマンドをtool結果の本文に書く必要がある（ラプラス氏の依頼、決裁箱のコネクタで使う）。
