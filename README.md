@@ -116,7 +116,7 @@ In your setup command:
 - `mergeCursorParentHooks(PROFILE, hooksFile, { command: nodePath, script: hookPath })` for Cursor,
 - `configureCodexSteer(PROFILE, "enable", { hook: hookPath })` for Codex.
 
-They keep other products' and the user's hooks and their order, and back up the file before writing. `removeClaudeParentHooks`, `removeCursorParentHooks`, and `configureCodexSteer(PROFILE, "disable", …)` undo them. `configureCodexSteer` returns `restart_required` when Codex processes that started before the hooks were installed are still running.
+They keep other products' and the user's hooks and their order, and back up the file before writing. `removeClaudeParentHooks`, `removeCursorParentHooks`, and `configureCodexSteer(PROFILE, "disable", …)` undo them. `configureCodexSteer` returns `restart_required` when Codex processes that started before the hooks were installed are still running. PowerShell paths use the actual filesystem spelling, so PATH casing alone does not rewrite Codex hooks or require a restart.
 
 ### 4. Deliver
 

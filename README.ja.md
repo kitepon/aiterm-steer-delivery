@@ -116,7 +116,7 @@ await runClaudeHookMain(PROFILE);
 - Cursor: `mergeCursorParentHooks(PROFILE, hooksFile, { command: nodePath, script: hookPath })`
 - Codex: `configureCodexSteer(PROFILE, "enable", { hook: hookPath })`
 
-他の製品や利用者の hook とその順序は保ち、書き換える前にファイルの控えを残します。解除は `removeClaudeParentHooks`、`removeCursorParentHooks`、`configureCodexSteer(PROFILE, "disable", …)` です。hook を入れる前から動いている Codex が残っていると、`configureCodexSteer` は `restart_required` を返します。
+他の製品や利用者の hook とその順序は保ち、書き換える前にファイルの控えを残します。解除は `removeClaudeParentHooks`、`removeCursorParentHooks`、`configureCodexSteer(PROFILE, "disable", …)` です。hook を入れる前から動いている Codex が残っていると、`configureCodexSteer` は `restart_required` を返します。 PowerShell の path は実体の表記に揃えるため、PATH の大文字小文字だけでは Codex hook を書き換えず、再起動を求めません。
 
 ### 4. 届ける
 

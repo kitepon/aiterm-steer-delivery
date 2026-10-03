@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { resolveWindowsPowerShell7 } from '../dist/windows.js';
 import { configureCodexSteer, readCodexHookConfig } from '../dist/index.js';
 
 const fresh = t => { const dir = mkdtempSync(join(tmpdir(), 'steer-codex-setup-')); t.after(() => rmSync(dir, { recursive: true, force: true })); return dir; };
@@ -113,4 +114,28 @@ test('Linuxのprocessの環境からCODEX_HOMEを読み、無ければHOME/.code
   assert.equal(processCodexHome(1, 'linux', env(['HOME=/home/a'])), '/home/a/.codex');
   assert.equal(processCodexHome(1, 'linux', () => { throw new Error('EACCES'); }), null);
   assert.equal(processCodexHome(1, 'darwin', env(['HOME=/Users/a'])), null);
+});
+
+
+test('WindowsのPowerShell pathの大文字小文字だけが変わってもhookと再起動待ちを変更しない', { skip: process.platform !== 'win32' }, async t => {
+  const root = fresh(t), home = join(root, 'codex'); mkdirSync(home);
+  const hook = join(root, 'demo-codex-hook.js'); writeFileSync(hook, '');
+  const powershellDirectory = join(root, 'PowerShellCase'); mkdirSync(powershellDirectory);
+  const executable = join(powershellDirectory, 'pwsh.exe'); writeFileSync(executable, '');
+  let located = executable;
+  const probe = command => command === 'where.exe'
+    ? { status: 0, stdout: located + '\r\n' }
+    : { status: 0, stdout: JSON.stringify({ edition: 'Core', major: 7 }) };
+  const binary = 'C:/Program Files/Codex/codex.exe';
+  let rows = [];
+  const runtime = { hook, platform: 'win32', codex_home: home, node: process.execPath,
+    findBinary: () => binary, processes: () => rows, legacy: () => null, verify: async () => {},
+    powershell: () => resolveWindowsPowerShell7(probe) };
+  assert.deepEqual(await configureCodexSteer(profile(root), 'enable', runtime), { status: 'ready' });
+  const original = readFileSync(join(home, 'hooks.json'));
+  rows = [{ pid: 10, started_identity: 'same-desktop', parent_pid: 1, command: `"${binary}" app-server` }];
+  located = executable.toLowerCase();
+  assert.deepEqual(await configureCodexSteer(profile(root), 'enable', runtime), { status: 'ready' });
+  assert.deepEqual(readFileSync(join(home, 'hooks.json')), original);
+  assert.deepEqual(readCodexHookConfig(profile(root)).stale_processes, []);
 });

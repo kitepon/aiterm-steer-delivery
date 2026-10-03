@@ -1,5 +1,6 @@
 // WindowsのPowerShell 7と引数の引用。5.1／cmdへは切り替えず、見つからなければ理由付きで止める。
 import { execFileSync, spawnSync } from "node:child_process";
+import { realpathSync } from "node:fs";
 import * as path from "node:path";
 
 export const WINDOWS_POWERSHELL_7_COMMAND = "pwsh.exe";
@@ -37,8 +38,12 @@ export function resolveWindowsPowerShell7(probe: WindowsPowerShellProbe = defaul
   try { identity = JSON.parse(version.stdout?.trim() ?? ""); } catch { /* typed failure below */ }
   if (version.status !== 0 || identity?.edition !== "Core"
     || !Number.isInteger(identity.major) || Number(identity.major) < 7) fail();
-  if (probe === defaultProbe) resolvedDefault = executable;
-  return executable;
+  // where.exeは呼出元のPATHの表記を返す。工場とSSHで同じファイルのcaseが
+  // 違うと、Codex hookの文字列と承認hashまで変わり、不要な再起動待ちになる。
+  let canonical: string;
+  try { canonical = realpathSync.native(executable); } catch { return fail(); }
+  if (probe === defaultProbe) resolvedDefault = canonical;
+  return canonical;
 }
 
 export const quotePowerShell = (value: string): string => `'${value.replace(/'/g, "''")}'`;

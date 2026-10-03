@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.11
+
+- WindowsのPowerShell 7を実体のpathへ解決する。同じ実行ファイルがPATHの大文字小文字だけ違う形で見つかっても、Codex hookのcommandと承認hashを変えず、不要な再起動待ちを作らない（foxの定期更新とSSHからのsetupで再現）。既に記録されている再起動待ちは保持する。
+
 ## 0.1.10
 
 - Cursorのhookの持ち主を、名前の部分一致ではなくfile名の境目まで見て決める。Aitermの`cursor-parent-hook.js`が`gpt-connector-cursor-parent-hook.js`にも当たり、Aitermのsetupと解除がgpt-connectorのCursor hookを消していた（2026-10-03、main-server）。登録の確認（`cursorParentHooksRegistered`）も同じ見分けにした。`commandNamesFile`を公開する。
