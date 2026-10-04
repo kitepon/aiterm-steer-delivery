@@ -122,7 +122,7 @@ Cursor の親は、1回の回答の受信 process を切り離して起こすの
 
 ### 4. 届ける
 
-届け方は2つあります。
+MCPを呼んだ親への届け方は2つあります。
 
 **1回の依頼に1つの答え**（Aiterm の使い方）: MCP 要求から親を見分け、配送IDを結び付け、確定した本文を一度だけ送ります。
 
@@ -147,6 +147,25 @@ steer.channelDeliveryState(PROFILE, channel.channel_id, id); // queued | sending
 Claude Code は `Stop` のたびに待機を張り直します。Cursor はツール結果に入れた `steer.channelMarker(channel)` で channel を会話に結び付けます。手すきの Cursor／Grok の親は `steer.channelReceiveProcess(...)` を背景で動かし、結果に付く `next_wait_process` で受信を張り直します。`withdrawFromChannel` はまだどの受け口も取っていない本文を取り下げるので、新しい channel で送り直せます。`closeChannel` で channel を閉じます。
 
 marker と受信コマンドは、`structuredContent` だけでなくツール結果の**本文**にも書いてください。Cursor CLI のモデルは structured content を読みません。`steer.waitProcessCommandLine(steer.channelReceiveProcess(script, channel.channel_id))` で、受信コマンドをシェルの1行にできます（POSIX sh、Windows では PowerShell）。
+
+### 新しいClaude会話へ送る
+
+`sendClaudeInbox(target, text, options)` はClaude Codeの[会話のinbox](https://code.claude.com/docs/en/cross-session-messaging#the-sessions-inbox-socket)へuserメッセージを1通送ります。宛先の`SessionStart` hookで`CLAUDE_CODE_MESSAGING_SOCKET`と`CLAUDE_CODE_MESSAGING_TOKEN`を取得します。その会話がMCPを呼ぶ前にも使え、`ProductProfile`や`ClaudeParent`は要りません。
+
+```js
+import { sendClaudeInbox } from "aiterm-steer-delivery";
+
+const text = "作業を続けて";
+const result = await sendClaudeInbox({ socket_path, token }, text, {
+  timeout_ms: 30_000,
+  // UserPromptSubmitの受領記録を観測する処理は、利用製品が用意します。
+  confirm_acceptance: signal => productReceipts.waitForPrompt({ session_id, text, signal }),
+});
+```
+
+宛先はhookから得て、PIDから推測しません。Windowsではtokenが必須で、POSIXでも渡したtokenは先頭のauth行で送ります。tokenは非公開で扱います。`confirm_acceptance`は接続前に開始します。受領票の事前登録が必要なら呼出前に済ませ、対象sessionと今回の文を照合します。古い記録や時刻の変化だけでは確認しません。終了時は`AbortSignal`で観測を取り消します。`false`は未確認を意味します。
+
+raw投稿には同じ接続上の受付票がありません。`accepted`はUserPromptSubmitなどの受領観測が一致した時だけ返し、作業の完了までは示しません。`not_sent`はメッセージの書き込みを試みていない場合です。書き込みを試みた後の失敗や確認不能は`unknown`と`outcome_unknown:true`を返します。観測処理を渡さなければ、書き込みが成功しても`unknown`です。自動再送はしません。Claudeの受信制御はそのまま適用されます。結果は`status`・`reason`・`outcome_unknown`だけで、token・本文・宛先を含めません。
 
 ## エラーと配送の状態
 

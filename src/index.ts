@@ -32,6 +32,9 @@ export {
   closeClaudeParentSession, submitClaudeParentAnswer, runClaudeResultHook, type ClaudeParent,
 } from "./claude-receiver.js";
 export {
+  sendClaudeInbox, type ClaudeInboxTarget, type ClaudeInboxSendOptions, type ClaudeInboxSendResult,
+} from "./claude-inbox.js";
+export {
   cursorParentSchema, isCursorMcpClient, cursorHooksFile, cursorParentHooksRegistered, verifyCursorParent,
   cursorParentFromRequest, prepareCursorDelivery, submitCursorParentAnswer, handleCursorHook, receiveCursorAnswer,
   type CursorParent, type CursorReceiveResult, type CursorReceiveReader,

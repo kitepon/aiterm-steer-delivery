@@ -122,7 +122,7 @@ They keep other products' and the user's hooks and their order, and back up the 
 
 ### 4. Deliver
 
-There are two ways to deliver.
+The MCP parent-delivery APIs offer two ways to deliver.
 
 **One answer per request** (what Aiterm does): identify the parent from the MCP request, bind a delivery id, and submit the final text once.
 
@@ -147,6 +147,25 @@ steer.channelDeliveryState(PROFILE, channel.channel_id, id); // queued | sending
 Claude Code re-arms its waiter at every `Stop`. Cursor binds the channel with `steer.channelMarker(channel)` placed in your tool result, and idle Cursor/Grok parents run `steer.channelReceiveProcess(...)` in the background; each result carries `next_wait_process` to re-arm. `withdrawFromChannel` takes back text no receiver has claimed yet, so you can resend it on a new channel; `closeChannel` ends one.
 
 Put both the marker and the receiver command in the **text** of your tool result, not only in `structuredContent`: the Cursor CLI model does not read structured content. `steer.waitProcessCommandLine(steer.channelReceiveProcess(script, channel.channel_id))` gives the command as one shell line (POSIX sh, or PowerShell on Windows).
+
+### Send to a new Claude conversation
+
+`sendClaudeInbox(target, text, options)` sends one user message to Claude Code's [session inbox](https://code.claude.com/docs/en/cross-session-messaging#the-sessions-inbox-socket). Capture `CLAUDE_CODE_MESSAGING_SOCKET` and `CLAUDE_CODE_MESSAGING_TOKEN` in the target's `SessionStart` hook. This API works before that conversation has called an MCP tool, and needs no `ProductProfile` or `ClaudeParent`.
+
+```js
+import { sendClaudeInbox } from "aiterm-steer-delivery";
+
+const text = "Continue the work.";
+const result = await sendClaudeInbox({ socket_path, token }, text, {
+  timeout_ms: 30_000,
+  // Your product observes the target's UserPromptSubmit receipt.
+  confirm_acceptance: signal => productReceipts.waitForPrompt({ session_id, text, signal }),
+});
+```
+
+Capture the endpoint from the target hook; do not infer it from a PID. Windows requires a token; POSIX sends the authentication line when a token is supplied. Keep the token private. `confirm_acceptance` starts before connecting; arm any receipt registration before calling. Match the target session and this message, rather than an older receipt or merely a new timestamp. The observer receives an `AbortSignal` when the call finishes. Its `false` result means unconfirmed.
+
+The raw inbox post has no same-connection acknowledgement proving conversation acceptance. `accepted` requires your observer to confirm receipt, for example at `UserPromptSubmit`; it does not prove task completion. `not_sent` means no message write was attempted. After a write is attempted, a failure or missing confirmation returns `unknown` with `outcome_unknown:true`. With no observer, even a successful write returns `unknown`. The library never retries. Claude's inbound controls still apply. The result contains only `status`, `reason`, and `outcome_unknown` and excludes the token, message, and endpoint.
 
 ## Errors and delivery states
 

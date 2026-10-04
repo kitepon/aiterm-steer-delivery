@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.13
+
+- `sendClaudeInbox`を公開する。ClaudeのSessionStartが渡すinbox socketとtokenへuserメッセージを1通送る。MCPを呼んでいない新規会話にも使え、既存のClaudeParent・channel・asyncRewake配送は変えない。Windowsはauthを必須とし、POSIXでもtokenを渡せる。
+- raw投稿の書き込みを受付済みとはしない。利用製品がUserPromptSubmit等を照合する`confirm_acceptance`を渡し、確認できた時だけ`accepted`にする。書き込み前の失敗は`not_sent`、書き込み後の確認不能は`unknown`と`outcome_unknown:true`。token・本文・宛先を結果へ含めず、自動再送しない。
+
 ## 0.1.12
 
 - Cursor親の背景受信（`runCursorReceive`）が、読み手の居ない時に回答を引き取らない。Cursorは受信processを切り離して起こすので、親が終わった後も受信processは残る。残ったprocessが回答を引き取り、送り主は誰も読んでいない回答を配送済みにしていた（実物のCursor CLI 2026.10.01で、席を再起動して20回中20回）。受信processは最長24時間残っていた。
