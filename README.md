@@ -108,6 +108,8 @@ await runClaudeHookMain(PROFILE);
 
 Use `runCodexHookMain`, `runClaudeHookMain`, and `runCursorHookMain` for the three hook files. Background receivers use `runCursorReceiveMain` (one answer) or `runChannelReceiveMain` (channels).
 
+The Cursor parent starts the one-answer receiver detached, so it outlives the parent. Before it claims an answer, the receiver checks that the parent is still reading its output. If the parent is gone, it leaves the answer unclaimed and exits with code 5; the sender sees the delivery as not yet received instead of delivered.
+
 ### 3. Register the hooks
 
 In your setup command:

@@ -92,11 +92,10 @@ export async function runCursorHookMain(profile: ProductProfile, root: string | 
 
 /** Cursor親の背景受信。 */
 export async function runCursorReceiveMain(profile: ProductProfile, argv: string[] = process.argv.slice(2), root: string | readonly string[] = cursorHookRoot(profile)): Promise<void> {
-  const emit = (value: unknown) => { process.stdout.write(JSON.stringify(value) + "\n"); };
   try {
-    process.exitCode = await runCursorReceive(root, argv, emit);
+    process.exitCode = await runCursorReceive(root, argv);
   } catch (error) {
-    emit({ ok: false, code: "CURSOR_PARENT_RECEIVE_FAILED", message: error instanceof Error ? error.message : "cursor-parent-receive: operation failed" });
+    process.stdout.write(JSON.stringify({ ok: false, code: "CURSOR_PARENT_RECEIVE_FAILED", message: error instanceof Error ? error.message : "cursor-parent-receive: operation failed" }) + "\n");
     process.exitCode = 1;
   }
 }

@@ -36,8 +36,9 @@ export function writeHookJson(file: string, value: unknown): void {
   finally { if (fs.existsSync(temporary)) fs.unlinkSync(temporary); }
 }
 
-/** directory内の状態変化を待つ。inspectが値を返した時点でresolveする。timeoutMsを省くと期限なし。 */
-export function waitForFileState<T>(dir: string, inspect: () => T | undefined, timeoutMs?: number): Promise<T> {
+/** directory内の状態変化を待つ。inspectが値を返した時点でresolveする。timeoutMsを省くと期限なし。
+ * signalがabortされると WAIT_FOR_FILE_ABORTED でrejectする。 */
+export function waitForFileState<T>(dir: string, inspect: () => T | undefined, timeoutMs?: number, signal?: AbortSignal): Promise<T> {
   return new Promise((resolve, reject) => {
     let finished = false;
     let timer: NodeJS.Timeout | undefined;
@@ -49,8 +50,10 @@ export function waitForFileState<T>(dir: string, inspect: () => T | undefined, t
       watcher.close();
       if (timer) clearInterval(timer);
       if (timeout) clearTimeout(timeout);
+      signal?.removeEventListener("abort", abort);
       if (error) reject(error); else resolve(value as T);
     };
+    const abort = () => finish(new Error("WAIT_FOR_FILE_ABORTED"));
     const check = () => {
       if (finished) return;
       try {
@@ -61,6 +64,7 @@ export function waitForFileState<T>(dir: string, inspect: () => T | undefined, t
     watcher.on("error", error => finish(error));
     timer = setInterval(check, 5000);
     if (timeoutMs !== undefined) timeout = setTimeout(() => finish(new Error("WAIT_FOR_FILE_TIMEOUT")), timeoutMs);
+    if (signal?.aborted) abort(); else signal?.addEventListener("abort", abort, { once: true });
     check();
   });
 }

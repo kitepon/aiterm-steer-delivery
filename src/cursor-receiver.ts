@@ -215,21 +215,37 @@ export async function handleCursorHook(profile: ProductProfile, raw: string, hoo
   return {};
 }
 
-export type CursorReceiveResult = { outcome: "delivered"; text: string } | { outcome: "delivered_by_hook" } | { outcome: "timeout" };
+export type CursorReceiveResult = { outcome: "delivered"; text: string } | { outcome: "delivered_by_hook" } | { outcome: "timeout" } | { outcome: "reader_gone" };
+/**
+ * 受信processの読み手（このprocessを背景で起こした親）が居るかを確かめる口。
+ * 親が終わった後も受信processは残る。確かめずに回答を引き取ると、誰も読まないのに配送済みになる。
+ */
+export interface CursorReceiveReader {
+  /** 読み手が居なくなった時に解決する。見張れない出力先では解決しない。 */
+  readonly gone: Promise<void>;
+  /** 今、読み手へ書けるか。 */
+  probe(): Promise<boolean>;
+}
 
-export async function receiveCursorAnswer(hookRoot: string, deliveryId: string, timeoutMs = 86_400_000): Promise<CursorReceiveResult> {
+export async function receiveCursorAnswer(hookRoot: string, deliveryId: string, timeoutMs = 86_400_000, reader?: CursorReceiveReader): Promise<CursorReceiveResult> {
   const id = deliveryIdSchema.parse(deliveryId);
   const dir = path.join(hookRoot, "deliveries", id);
   if (!fs.existsSync(dir)) throw new CursorDeliveryError("CURSOR_PARENT_DELIVERY_UNKNOWN", "Cursor配送の記録がありません");
   const answerFile = path.join(dir, "answer.json");
+  const waiting = new AbortController();
+  let gone = false;
+  void reader?.gone.then(() => { gone = true; waiting.abort(); });
   try {
-    await waitForFileState(dir, () => fs.existsSync(answerFile) ? true : undefined, timeoutMs);
+    await waitForFileState(dir, () => fs.existsSync(answerFile) ? true : undefined, timeoutMs, waiting.signal);
   } catch (error) {
     if (error instanceof Error && error.message === "WAIT_FOR_FILE_TIMEOUT") return { outcome: "timeout" };
+    if (error instanceof Error && error.message === "WAIT_FOR_FILE_ABORTED") return { outcome: "reader_gone" };
     throw error;
   }
   const answer = z.object({ delivery_id: z.string(), text: z.string() }).parse(JSON.parse(fs.readFileSync(answerFile, "utf8")));
   if (answer.delivery_id !== id) throw new CursorDeliveryError("CURSOR_PARENT_DELIVERY_MISMATCH", "保存された回答の配送IDが一致しません");
+  // 引き取ると送り主は配送済みにする。読み手が居ない時は引き取らず、回答を置き場に残す。
+  if (reader && (gone || !(await reader.probe()))) return { outcome: "reader_gone" };
   if (!claim(dir, "receiver")) return { outcome: "delivered_by_hook" };
   return { outcome: "delivered", text: answer.text };
 }

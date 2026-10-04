@@ -34,9 +34,9 @@ export {
 export {
   cursorParentSchema, isCursorMcpClient, cursorHooksFile, cursorParentHooksRegistered, verifyCursorParent,
   cursorParentFromRequest, prepareCursorDelivery, submitCursorParentAnswer, handleCursorHook, receiveCursorAnswer,
-  type CursorParent, type CursorReceiveResult,
+  type CursorParent, type CursorReceiveResult, type CursorReceiveReader,
 } from "./cursor-receiver.js";
-export { cursorReceiveProcess, runCursorReceive, waitProcessCommandLine, type WaitProcess } from "./cursor-receive.js";
+export { cursorReceiveProcess, runCursorReceive, stdoutOutput, waitProcessCommandLine, type WaitProcess, type ReceiveOutput } from "./cursor-receive.js";
 export {
   claudeParentHookEntries, mergeClaudeParentHooks, removeClaudeParentHooks,
   cursorParentHookCommand, mergeCursorParentHooks, removeCursorParentHooks, commandNamesFile, type HookRuntime,

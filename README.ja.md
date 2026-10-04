@@ -108,6 +108,8 @@ await runClaudeHookMain(PROFILE);
 
 3つの hook ファイルには `runCodexHookMain`、`runClaudeHookMain`、`runCursorHookMain` を使います。背景の受信には `runCursorReceiveMain`（1回の回答）か `runChannelReceiveMain`（channel）を使います。
 
+Cursor の親は、1回の回答の受信 process を切り離して起こすので、親が終わった後も受信 process は残ります。受信 process は回答を引き取る前に、親がまだ出力を読んでいるかを確かめます。親が居なければ引き取らずに exit code 5 で終わり、送り主からは「配送済み」ではなく「まだ受け取られていない」と見えます。
+
 ### 3. hook を登録する
 
 製品の setup コマンドで次を呼びます。

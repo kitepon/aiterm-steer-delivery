@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.12
+
+- Cursor親の背景受信（`runCursorReceive`）が、読み手の居ない時に回答を引き取らない。Cursorは受信processを切り離して起こすので、親が終わった後も受信processは残る。残ったprocessが回答を引き取り、送り主は誰も読んでいない回答を配送済みにしていた（実物のCursor CLI 2026.10.01で、席を再起動して20回中20回）。受信processは最長24時間残っていた。
+  - 出力先を `stdoutOutput()` で扱う。stdoutがsocket（POSIXのNodeが子へ渡す形）なら読み口も開き、親が終わった時点で受信を終える。引き取る前には1行書いて、書けるかを確かめる（Windowsのpipeなど、終了を知る方法が無い出力先のため）。
+  - 読み手が居ない時は引き取らずにexit code 5で終わる。回答は置き場に残り、`submitCursorParentAnswer` は期限まで待って `CURSOR_PARENT_DELIVERY_UNCLAIMED` になる。
+  - `receiveCursorAnswer` の4番目の引数に読み手（`CursorReceiveReader`）を渡した時だけ、結果に `reader_gone` が加わる。`runCursorReceive` の3番目の引数へ関数を渡す従来の呼び方は、読み手を確かめない。
+- `waitForFileState` が `AbortSignal` を受け取る。
+
 ## 0.1.11
 
 - WindowsのPowerShell 7を実体のpathへ解決する。同じ実行ファイルがPATHの大文字小文字だけ違う形で見つかっても、Codex hookのcommandと承認hashを変えず、不要な再起動待ちを作らない（foxの定期更新とSSHからのsetupで再現）。既に記録されている再起動待ちは保持する。
