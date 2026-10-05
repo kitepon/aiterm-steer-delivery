@@ -1,6 +1,6 @@
 {
   "name": "aiterm-steer-delivery",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Aiterm's steer delivery as a library: deliver text to the parent AI session that called your MCP tool — steered into the running turn when it is busy, delivered normally when it is idle. Codex (official queue + sync hooks), Claude Code (asyncRewake hooks), Cursor (hooks + background receiver).",
   "type": "module",
   "license": "MIT",

@@ -29,6 +29,8 @@ export interface CodexReceiverRuntime {
   args?: string[];
   timeout_ms?: number;
   hook_directory?: string;
+  /** App Serverを起こす環境。省略すると、このprocessの環境。`CODEX_HOME`は常に`parent.codex_home`で上書きする。 */
+  env?: NodeJS.ProcessEnv;
 }
 
 type Pending = {
@@ -49,7 +51,7 @@ export async function withCodexReceiver<T>(
   if (!executable) throw new CodexDeliveryError("CODEX_RECEIVER_UNAVAILABLE", "Codexの実行ファイルを確認できません");
   const child = spawn(executable, runtime.args ?? ["app-server", "--listen", "stdio://"], {
     stdio: ["pipe", "pipe", "ignore"],
-    env: { ...process.env, CODEX_HOME: parent.codex_home },
+    env: { ...(runtime.env ?? process.env), CODEX_HOME: parent.codex_home },
     windowsHide: true,
   });
   const pending = new Map<number, Pending>();

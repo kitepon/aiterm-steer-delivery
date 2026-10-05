@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1
+
+- `withCodexReceiver`の`runtime`に`env`を足す。Codex App Serverを起こす環境を渡せる（省略すると、今までどおりこのprocessの環境）。`CODEX_HOME`は常に`parent.codex_home`で上書きする。Aitermが、認証sessionへ引き継いだ環境のままCodexのログインの状態を公式App Serverへ聞くために使う。
+
 ## 0.2.0
 
 Claude Codeのhookの登録の形が変わります。利用製品は、依存を`^0.2.0`へ上げてsetupを流し直してください。
