@@ -120,6 +120,15 @@ Cursor の親は、1回の回答の受信 process を切り離して起こすの
 
 他の製品や利用者の hook とその順序は保ち、書き換える前にファイルの控えを残します。解除は `removeClaudeParentHooks`、`removeCursorParentHooks`、`configureCodexSteer(PROFILE, "disable", …)` です。hook を入れる前から動いている Codex が残っていると、`configureCodexSteer` は `restart_required` を返します。 PowerShell の path は実体の表記に揃えるため、PATH の大文字小文字だけでは Codex hook を書き換えず、再起動を求めません。
 
+Claude Code の hook は、`args` を使わず、shell を通す1行で書きます。
+
+- POSIX: `exec '<node>' '<hook>'`。`exec` で `sh` を node に置き換え、Claude Code を hook の直接の親に保ちます。
+- Windows: `& '<node>' '<hook>'; exit (Get-Variable LASTEXITCODE -ValueOnly)` と `shell: "powershell"`。こう書かないと、PowerShell が hook の終了 code 2 を 1 に変えます。`asyncRewake` は 2 で親を起こします。
+
+Grok も `~/.claude/settings.json` の hook を動かしますが、`args` を落として `command` だけを動かします。0.1 系が書いていた `command` + `args` の形では、Grok は node だけを起こし、node が hook の入力を script として読んで、`Stop` のたびに失敗していました。`runClaudeHookMain` は、Grok から起こされた時は何もせずに 0 で終わります（Grok だけが入力に入れる `hookEventName` で見分けます）。Grok の親は hook ではなく、背景の受信プロセスで受け取るためです。
+
+`mergeClaudeParentHooks` は、製品の 0.1 系の登録を新しい形へ置き換えます。`removeClaudeParentHooks` は両方の形を取り除きます。設定ファイルを書き換えずに登録を確かめる時は、`claudeParentHooksRegistered(PROFILE, document)` と `claudeParentHookScripts(PROFILE, document)`（登録が指している hook ファイルの path）を使い、`args` を自分で読まないでください。0.1 系へ戻す時は、先に 0.2 系の `removeClaudeParentHooks` を呼んでください。0.1 系は新しい形の登録を自分の物と数えず、もう1組を足します。
+
 ### 4. 届ける
 
 MCPを呼んだ親への届け方は2つあります。

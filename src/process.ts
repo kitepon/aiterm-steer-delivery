@@ -51,6 +51,25 @@ export function parsePosixProcessTable(text: string): RuntimeProcess[] {
   });
 }
 
+/** hookのcommandを動かすshell。Claude Codeは`sh -c`（POSIX）、PowerShellかGit Bash（Windows）を使う。 */
+const HOOK_SHELLS = new Set(["sh", "bash", "dash", "zsh", "ksh", "ash", "busybox", "pwsh", "powershell", "cmd"]);
+
+function executableName(row: RuntimeProcess): string {
+  const source = row.executable || (row.command.startsWith('"') ? row.command.slice(1).split('"')[0] : row.command.split(/\s+/u)[0]);
+  return (source.split(/[\\/]/u).pop() ?? "").replace(/^-/u, "").replace(/\.exe$/iu, "").toLowerCase();
+}
+
+/**
+ * hookを起動したharnessのprocess。shellを通す形のhookでは、harnessとhookの間にshellが挟まる。
+ * 挟まったshellはhookと一緒に終わるので、`pid`から先祖をたどり、shellでない最初のprocessを返す。
+ */
+export function hookOwnerProcess(rows: readonly RuntimeProcess[], pid: number): RuntimeProcess | undefined {
+  const byPid = new Map(rows.map(row => [row.pid, row]));
+  let current = byPid.get(pid);
+  for (let depth = 0; current && depth < 4 && HOOK_SHELLS.has(executableName(current)); depth += 1) current = byPid.get(current.parent_pid);
+  return current;
+}
+
 export function readRuntimeProcesses(): RuntimeProcess[] {
   if (!isWin) {
     const result = spawnSync("/bin/ps", ["-axww", "-o", "pid=,ppid=,pgid=,stat=,lstart=,time=,command="], {

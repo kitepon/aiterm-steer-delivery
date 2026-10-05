@@ -120,6 +120,15 @@ In your setup command:
 
 They keep other products' and the user's hooks and their order, and back up the file before writing. `removeClaudeParentHooks`, `removeCursorParentHooks`, and `configureCodexSteer(PROFILE, "disable", …)` undo them. `configureCodexSteer` returns `restart_required` when Codex processes that started before the hooks were installed are still running. PowerShell paths use the actual filesystem spelling, so PATH casing alone does not rewrite Codex hooks or require a restart.
 
+The Claude Code hooks are written as one shell line, without `args`:
+
+- POSIX: `exec '<node>' '<hook>'`. `exec` replaces `sh`, so Claude Code stays the direct parent of the hook.
+- Windows: `& '<node>' '<hook>'; exit (Get-Variable LASTEXITCODE -ValueOnly)` with `shell: "powershell"`. PowerShell would otherwise turn the hook's exit code 2 into 1, and `asyncRewake` needs the 2.
+
+Grok also runs the hooks in `~/.claude/settings.json`, but it drops `args` and runs `command` alone. With the `command` + `args` form that 0.1.x wrote, Grok started bare `node`, which read the hook input as a script and failed at every `Stop`. `runClaudeHookMain` now does nothing and exits 0 when Grok starts it (Grok puts its own `hookEventName` in the input), because Grok parents receive through the background process, not through hooks.
+
+`mergeClaudeParentHooks` replaces your product's 0.1.x entries with the new form, and `removeClaudeParentHooks` removes both forms. To check a settings file without writing it, use `claudeParentHooksRegistered(PROFILE, document)` and `claudeParentHookScripts(PROFILE, document)` (the hook file paths the entries point to); do not read `args` yourself. Before you go back to 0.1.x, call `removeClaudeParentHooks` from 0.2.x: 0.1.x does not recognize the new entries and would add a second set.
+
 ### 4. Deliver
 
 The MCP parent-delivery APIs offer two ways to deliver.

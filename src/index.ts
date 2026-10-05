@@ -3,7 +3,7 @@
 export * from "./profile.js";
 export * from "./errors.js";
 export { writeJson0600, writeHookJson, waitForFileState, withoutBom } from "./files.js";
-export { readRuntimeProcesses, parsePosixProcessTable, type RuntimeProcess, type NativeProcessIdentity } from "./process.js";
+export { readRuntimeProcesses, parsePosixProcessTable, hookOwnerProcess, type RuntimeProcess, type NativeProcessIdentity } from "./process.js";
 export { resolveWindowsPowerShell7, quotePowerShell, windowsPowerShellSync, windowsStartProcessArgumentList } from "./windows.js";
 export { setupNodeExecutable } from "./setup-node.js";
 
@@ -41,7 +41,7 @@ export {
 } from "./cursor-receiver.js";
 export { cursorReceiveProcess, runCursorReceive, stdoutOutput, waitProcessCommandLine, type WaitProcess, type ReceiveOutput } from "./cursor-receive.js";
 export {
-  claudeParentHookEntries, mergeClaudeParentHooks, removeClaudeParentHooks,
+  claudeParentHookCommand, claudeParentHookEntries, claudeParentHooksRegistered, claudeParentHookScripts, mergeClaudeParentHooks, removeClaudeParentHooks,
   cursorParentHookCommand, mergeCursorParentHooks, removeCursorParentHooks, commandNamesFile, type HookRuntime,
 } from "./hook-setup.js";
 export { runCodexHookMain, runClaudeHookMain, runCursorHookMain, runCursorReceiveMain, isDirectExecution } from "./hook-main.js";

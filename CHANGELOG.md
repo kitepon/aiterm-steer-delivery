@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.2.0
+
+Claude Codeのhookの登録の形が変わります。利用製品は、依存を`^0.2.0`へ上げてsetupを流し直してください。
+
+- **Claude Codeのhookを、`args`を使わずshellを通す1行で書く。** Grokは共有の`~/.claude/settings.json`のhookも動かすが、`args`を落として`command`だけを動かす。0.1系の`command=node, args=[入口]`の形では、Grokがnodeだけを起こし、nodeがhookの入力のJSONをscriptとして読んで、Stopと会話の終わりのたびに`[stdin]:1`で失敗していた（ティア席のGrok 1.0.46で報告。Linuxとfoxで再現）。
+  - POSIX: `exec '<node>' '<入口>'`。Claude Codeは`/bin/sh -c`で動かし、`exec`を書かないとshがhookの親として残る（Linuxの2.1.289で確認）。
+  - Windows: `& '<node>' '<入口>'; exit (Get-Variable LASTEXITCODE -ValueOnly)`と`shell: "powershell"`。GrokはWindowsでhookをPowerShellで動かし、`shell`は読まない。PowerShellは終了codeを0か1へ丸めるので、asyncRewakeの2をそのまま返す。`$LASTEXITCODE`とは書かない（Grokが`$名前`を環境変数として読み、未設定としてhookを動かさずに失敗と記録する）。
+  - `claudeParentHookCommand`を公開する。`claudeParentHookEntries`は3つ目の引数でplatformを受け取る。
+- **PreToolUseのhookは、間に挟まったshellではなく、hookを起動したClaude Codeを親として記録する。** 今までは`process.ppid`をそのまま記録していた。shellを通す形では、WindowsのPowerShell（とexecを書かないsh）がhookと一緒に終わるので、受信の時に「依頼元のClaude processは終了しました」になる。`hookOwnerProcess`を公開する。
+- **Grokから起こされたhook（`runClaudeHookMain`）は、何もせず0で終わる。** 形を直した後は、GrokのStopでhookが本当に走る。失敗の2を返すと、GrokはStopを「止めずに続ける」、PreToolUseを「拒否」と読む。見分けは、Grokだけが入力へ入れる`hookEventName`。
+- **再登録と解除は、0.1系の形と新しい形の両方を自製品のhookと数える。** `mergeClaudeParentHooks`は0.1系の登録を新しい形へ置き換え、`removeClaudeParentHooks`は両方を除く。他製品と利用者のhookは、どちらの形でも残す。
+- **`claudeParentHooksRegistered`と`claudeParentHookScripts`を公開する。** 設定を読むだけで、登録の有無と、登録が指す入口のpathを返す。製品が`args`を自分で読んで登録を確かめていると、新しい形を「未登録」と読む。
+- **`submitClaudeParentAnswer`が、届いた配送を`CLAUDE_PARENT_HOOK_CLOSED`と数えない。** 送り主は「出し終えた記録が無い」→「hookのprocessが居ない」の順に見ていた。process表を読む間（Windowsは約1秒）にhookが本文を出し終えて終わると、親には届いているのに、送り主には失敗（結果不明）で返っていた（foxのClaude Code 2.1.289、0.1.13で再現）。「居ない」と読んだ後に、出し終えた記録を見直す。process表は1回の確かめにつき1回だけ読む。
+- 0.1系へ戻す時の注意: 0.1系は新しい形の登録を自製品のhookと数えない。0.2.0で登録した後に0.1系のsetupを流すと、0.1系の形が足されて2組になる。戻す前に0.2.0の`removeClaudeParentHooks`を呼ぶ。
+- Windowsでは、待っているhook1つにつきPowerShellのprocessが1つ残る（Claude Codeが起こす`pwsh -Command`）。直接起動の形ではnodeだけだった。
+- 確かめた実物: Claude Code 2.1.289で、ライブラリが書いた登録のまま、作業中の親へ本文が差し込まれる事（Linux・macOS・Windows）。Grok 1.0.46で、Stopと会話の終わりのhookが失敗の記録を残さない事（Linux）。WindowsのGrokは、同じ書き方の1行が動く事までを見た。
+
 ## 0.1.13
 
 - `sendClaudeInbox`を公開する。ClaudeのSessionStartが渡すinbox socketとtokenへuserメッセージを1通送る。MCPを呼んでいない新規会話にも使え、既存のClaudeParent・channel・asyncRewake配送は変えない。Windowsはauthを必須とし、POSIXでもtokenを渡せる。

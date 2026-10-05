@@ -14,8 +14,26 @@ function endsWithFile(value: string, file: string): boolean {
   return value === file || value.endsWith(`/${file}`) || value.endsWith(`\\${file}`);
 }
 
-export function claudeParentHookEntries(profile: ProductProfile, hook: HookRuntime): Record<string, { matcher?: string; hooks: Record<string, unknown>[] }[]> {
-  const command = { type: "command", command: hook.command, args: [hook.script] };
+function shellQuote(value: string, platform: NodeJS.Platform = process.platform): string {
+  if (platform === "win32") return `'${value.replace(/'/g, "''")}'`;
+  return `'${value.replace(/'/g, `'"'"'`)}'`;
+}
+
+/**
+ * Claude Codeの設定へ書くhookのcommand。shellを通す形で書く。
+ * `args`を付ける直接起動の形は、同じ設定を読むGrokが`args`を落として`command`だけを動かす（nodeが入力のJSONをscriptとして読んで失敗する）。
+ * - POSIX: `sh -c`で動く。`exec`でshをnodeへ置き換え、Claude Codeをhookの直接の親に保つ。
+ * - Windows: PowerShellで動かす（GrokもPowerShellで動かす）。PowerShellは終了codeを0か1へ丸めるので、asyncRewakeの2をそのまま返す。
+ *   `$LASTEXITCODE`とは書かない。Grokが`$名前`を環境変数として読み、未設定としてhookを動かさない。
+ */
+export function claudeParentHookCommand(hook: HookRuntime, platform: NodeJS.Platform = process.platform): { command: string; shell?: "powershell" } {
+  const words = `${shellQuote(hook.command, platform)} ${shellQuote(hook.script, platform)}`;
+  if (platform === "win32") return { command: `& ${words}; exit (Get-Variable LASTEXITCODE -ValueOnly)`, shell: "powershell" };
+  return { command: `exec ${words}` };
+}
+
+export function claudeParentHookEntries(profile: ProductProfile, hook: HookRuntime, platform: NodeJS.Platform = process.platform): Record<string, { matcher?: string; hooks: Record<string, unknown>[] }[]> {
+  const command = { type: "command", ...claudeParentHookCommand(hook, platform) };
   const matcher = `^mcp__${profile.mcp_server}__(${profile.dispatch_tools.join("|")})$`;
   return {
     PreToolUse: [{ matcher, hooks: [{ ...command, timeout: 15 }] }],
@@ -67,9 +85,39 @@ export function mergeClaudeParentHooks(profile: ProductProfile, file: string, ho
   return "configured";
 }
 
-function isClaudeParentHook(profile: ProductProfile, hook: unknown): boolean {
-  return record(hook) && hook.type === "command" && Array.isArray(hook.args)
-    && typeof hook.args[0] === "string" && endsWithFile(hook.args[0], profile.hooks.claude);
+/** 当製品のhookか。0.1系が書いた直接起動の形（`args[0]`が入口）と、今の形（`command`が入口を指す）の両方を数える。 */
+function isClaudeParentHook(profile: ProductProfile, hook: unknown): hook is Record<string, unknown> {
+  if (!record(hook) || hook.type !== "command") return false;
+  if (Array.isArray(hook.args)) return typeof hook.args[0] === "string" && endsWithFile(hook.args[0], profile.hooks.claude);
+  return typeof hook.command === "string" && commandNamesFile(hook.command, profile.hooks.claude);
+}
+
+/** 引用符で囲んだ語を取り出す。`claudeParentHookCommand`が書いた行を読み戻すためのもので、PowerShellの行は`''`、shの行は`'"'"'`を引用符に戻す。 */
+function quotedWords(command: string): string[] {
+  const powershell = command.startsWith("& ");
+  const pattern = powershell ? /'((?:[^']|'')*)'/gu : /'((?:[^']|'"'"')*)'/gu;
+  return [...command.matchAll(pattern)].map(match => powershell ? match[1].replace(/''/g, "'") : match[1].replace(/'"'"'/g, "'"));
+}
+
+function ownedClaudeParentHooks(profile: ProductProfile, document: unknown, event: string): Record<string, unknown>[] {
+  const hooks = record(document) && record(document.hooks) ? document.hooks[event] : undefined;
+  if (!Array.isArray(hooks)) return [];
+  return hooks.flatMap(group => record(group) && Array.isArray(group.hooks) ? group.hooks : []).filter(entry => isClaudeParentHook(profile, entry));
+}
+
+/** 製品が登録する全てのeventに、当製品のhookがあるか（設定を読むだけ。形は旧・新のどちらでもよい）。 */
+export function claudeParentHooksRegistered(profile: ProductProfile, document: unknown): boolean {
+  return Object.keys(claudeParentHookEntries(profile, { command: "", script: profile.hooks.claude }))
+    .every(event => ownedClaudeParentHooks(profile, document, event).length > 0);
+}
+
+/** 登録済みの当製品のhookが指す入口のpath。入口のfileが残っているかを製品が確かめるために使う。 */
+export function claudeParentHookScripts(profile: ProductProfile, document: unknown): string[] {
+  return Object.keys(claudeParentHookEntries(profile, { command: "", script: profile.hooks.claude })).flatMap(event =>
+    ownedClaudeParentHooks(profile, document, event).flatMap(hook => {
+      const words = Array.isArray(hook.args) ? hook.args.filter((arg): arg is string => typeof arg === "string") : quotedWords(String(hook.command));
+      return words.filter(word => endsWithFile(word, profile.hooks.claude));
+    }));
 }
 
 /** hookを持たない旧版へ戻す前に、当製品の登録だけを除く。 */
@@ -100,11 +148,6 @@ export function removeClaudeParentHooks(profile: ProductProfile, file: string): 
   } finally { if (existsSync(temporary)) unlinkSync(temporary); }
   if (!isDeepStrictEqual(JSON.parse(readFileSync(target, "utf8")), next)) throw new SetupError("config_readback_failed", "Claude hook解除の読戻しが一致しません");
   return "removed";
-}
-
-function shellQuote(value: string): string {
-  if (process.platform === "win32") return `'${value.replace(/'/g, "''")}'`;
-  return `'${value.replace(/'/g, `'"'"'`)}'`;
 }
 
 export function cursorParentHookCommand(hook: HookRuntime): string {

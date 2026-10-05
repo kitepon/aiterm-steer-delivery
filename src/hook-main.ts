@@ -29,10 +29,15 @@ export async function runCodexHookMain(profile: ProductProfile, directory: strin
   }
 }
 
-/** Claude Codeが直接起動する公式hook（PreToolUse／PostToolUse／SessionEnd）。本文はstderrへ返す。 */
+/**
+ * Claude Codeが起動する公式hook（PreToolUse／PostToolUse／Stop／SessionEnd）。本文はstderrへ返す。
+ * Grokは共有の`~/.claude/settings.json`のhookも動かす。Grokの親への配送はhookを使わないので、Grokからの起動では何もせず0で終わる。
+ * 失敗の2を返すと、GrokはStopを「止めずに続ける」、PreToolUseを「拒否」と読む。見分けは、Grokだけが入力へ入れる`hookEventName`。
+ */
 export async function runClaudeHookMain(profile: ProductProfile, root: string = claudeHookRoot(profile)): Promise<void> {
   try {
     const event = JSON.parse(await readStdin());
+    if (event !== null && typeof event === "object" && typeof event.hookEventName === "string") return;
     const write = (text: string) => new Promise<void>((resolve, reject) => {
       process.stderr.write(text, error => error ? reject(error) : resolve());
     });

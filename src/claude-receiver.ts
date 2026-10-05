@@ -1,11 +1,11 @@
 // Claude Codeの公式hookを受信口にする。待機processはharnessが所有し、親のturnを止めない。
-// PreToolUseが実際の会話（session_id）と親processを記録し、MCP要求のtoolUseIdと結ぶ。
+// PreToolUseが実際の会話（session_id）と親process（hookを起動したClaude Code）を記録し、MCP要求のtoolUseIdと結ぶ。
 // PostToolUseのasyncRewake hookが本文の到着を待ち、stderrへ出してexit 2で親を起こす（作業中ならそのturnへ入る）。
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { z } from "zod";
 import { waitForFileState, writeJson0600 } from "./files.js";
-import { readRuntimeProcesses } from "./process.js";
+import { hookOwnerProcess, readRuntimeProcesses, type RuntimeProcess } from "./process.js";
 import { ClaudeDeliveryError } from "./errors.js";
 import type { ProductProfile } from "./profile.js";
 
@@ -41,13 +41,14 @@ function assertOpen(parent: ClaudeParent): void {
 
 export function prepareClaudeHookRequest(input: unknown, root: string): void {
   const event = z.object({ session_id: z.uuid(), tool_use_id: requestId, agent_id: z.string().optional() }).parse(input);
-  const identity = processIdentity(process.ppid);
-  if (!identity) throw new ClaudeDeliveryError("CLAUDE_PARENT_PROCESS_UNAVAILABLE", "hookを起動した親processを確認できません");
+  // shellを通す形のhookでは、直接の親はshellになる。shellはこのhookと一緒に終わるので、その先のClaude processを記録する。
+  const owner = hookOwnerProcess(readRuntimeProcesses(), process.ppid);
+  if (!owner) throw new ClaudeDeliveryError("CLAUDE_PARENT_PROCESS_UNAVAILABLE", "hookを起動した親processを確認できません");
   const dir = path.join(root, event.tool_use_id);
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   writeJson0600(path.join(dir, "request.json"), {
     request_id: event.tool_use_id, session_id: event.session_id, agent_id: event.agent_id ?? null,
-    parent_pid: process.ppid, parent_started_identity: identity,
+    parent_pid: owner.pid, parent_started_identity: owner.started_identity,
   } satisfies Invocation);
 }
 
@@ -94,33 +95,46 @@ function assertParentAlive(invocation: Invocation): void {
   }
 }
 
-export async function submitClaudeParentAnswer(profile: ProductProfile, parent: ClaudeParent, deliveryId: string, text: string): Promise<{ queued_submission_id: null }> {
+export async function submitClaudeParentAnswer(
+  profile: ProductProfile, parent: ClaudeParent, deliveryId: string, text: string,
+  runtime: { processes: () => RuntimeProcess[] } = { processes: readRuntimeProcesses },
+): Promise<{ queued_submission_id: null }> {
   const invocation = readInvocation(profile, parent);
   const dir = directory(parent);
   // 会話終了でも確定本文を失わない。終了判定より先に保存する。
   writeJson0600(path.join(dir, "answer.json"), { delivery_id: deliveryId, text });
+  const emitted = () => {
+    const file = path.join(dir, "emitted.json");
+    if (!fs.existsSync(file)) return false;
+    const value = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (value.delivery_id !== deliveryId) throw new ClaudeDeliveryError("CLAUDE_PARENT_DELIVERY_MISMATCH", "hookの配送IDが一致しません", true);
+    return true;
+  };
   await waitForFileState(dir, () => {
-    const emitted = path.join(dir, "emitted.json");
-    if (fs.existsSync(emitted)) {
-      const value = JSON.parse(fs.readFileSync(emitted, "utf8"));
-      if (value.delivery_id !== deliveryId) throw new ClaudeDeliveryError("CLAUDE_PARENT_DELIVERY_MISMATCH", "hookの配送IDが一致しません", true);
-      return true;
-    }
+    if (emitted()) return true;
     assertOpen(parent);
     const failed = path.join(dir, "failed.json");
     if (fs.existsSync(failed)) {
       const value = JSON.parse(fs.readFileSync(failed, "utf8"));
       throw new ClaudeDeliveryError("CLAUDE_PARENT_HOOK_FAILED", "親へのhook出力が失敗しました。回答は保存したままです", value.outcome_unknown === true);
     }
+    const rows = runtime.processes();
+    const alive = (pid: number, identity: string) => rows.find(entry => entry.pid === pid)?.started_identity === identity;
+    let gone: ClaudeDeliveryError | undefined;
     const hookFile = path.join(dir, "hook.json");
     if (fs.existsSync(hookFile)) {
       const hook = z.object({ pid: z.number().int().positive(), started_identity: z.string() }).parse(JSON.parse(fs.readFileSync(hookFile, "utf8")));
-      if (processIdentity(hook.pid) !== hook.started_identity) {
-        throw new ClaudeDeliveryError("CLAUDE_PARENT_HOOK_CLOSED", "親の受信hookが終了しました。自動再送はしていません", fs.existsSync(path.join(dir, "sending.json")));
+      if (!alive(hook.pid, hook.started_identity)) {
+        gone = new ClaudeDeliveryError("CLAUDE_PARENT_HOOK_CLOSED", "親の受信hookが終了しました。自動再送はしていません", fs.existsSync(path.join(dir, "sending.json")));
       }
     }
-    assertParentAlive(invocation);
-    return undefined;
+    if (!gone && !alive(invocation.parent_pid, invocation.parent_started_identity)) {
+      gone = new ClaudeDeliveryError("CLAUDE_PARENT_PROCESS_CLOSED", "依頼元のClaude processは終了しました。回答は保存したままです");
+    }
+    if (!gone) return undefined;
+    // process表を読む間（Windowsは約1秒）に、hookが本文を出し終えて終わる事がある。「居ない」と読んだ後に、出し終えた記録を見直す。
+    if (emitted()) return true;
+    throw gone;
   });
   return { queued_submission_id: null };
 }
