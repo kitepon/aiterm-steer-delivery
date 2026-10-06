@@ -145,6 +145,8 @@ const { queued_submission_id } = await steer.submitCodexParentAnswer(PROFILE, pa
 
 Claude Code and Cursor follow the same shape with `claudeParentFromRequest` / `bindClaudeParentDelivery` / `submitClaudeParentAnswer` and `cursorParentFromRequest` / `prepareCursorDelivery` / `submitCursorParentAnswer`. Each `…ParentFromRequest` returns `null` when the caller is a different client, so you can try them in turn. For Cursor, put the delivery id in your tool result, as `parent_delivery: { delivery_id }` in `structuredContent` and as a `delivery_id=<uuid>` line in the text, so the hook can bind it to the conversation.
 
+Claude Code does not run the `PostToolUse` hook when a tool result is an error (`isError`). When you return an error, call `discardClaudeHookRequest(clientName, request.params._meta, claudeHookRoot(PROFILE))` before returning, to remove that call's request directory. A directory with a bound delivery is kept. If you do not call it, the next request's hook removes the leftover after one day.
+
 **Many messages to one conversation** (channels, e.g. Peertable's room messages to the parent):
 
 ```js

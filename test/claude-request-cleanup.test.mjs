@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
-  bindClaudeParentDelivery, claudeParentFromRequest, closeClaudeParentSession, prepareClaudeHookRequest,
+  bindClaudeParentDelivery, claudeParentFromRequest, closeClaudeParentSession, discardClaudeHookRequest, prepareClaudeHookRequest,
   readRuntimeProcesses, runClaudeResultHook, submitClaudeParentAnswer,
 } from '../dist/index.js';
 import { sweepClaudeHookRequests } from '../dist/claude-receiver.js';
@@ -140,4 +140,47 @@ test('PreToolUseは、依頼を記録した後に古い残りを見回る', t =>
   prepareClaudeHookRequest(input, root);
   assert.deepEqual(readdirSync(root), ['toolu_new']);
   assert.equal(JSON.parse(readFileSync(join(root, 'toolu_new', 'request.json'), 'utf8')).session_id, input.session_id);
+});
+
+// 2026-10-06: 誤りで返った呼び出しの置き場（request.jsonだけ）は、1日後の見回りまで残っていた。
+// Claude Codeは誤りの返りでPostToolUseを走らせないので、製品が返す前に消す。
+test('誤りで返す呼び出しの置き場は、配送を結んでいなければ消す', async t => {
+  const root = fresh(t), session = randomUUID();
+  const meta = id => ({ 'claudecode/toolUseId': id });
+  prepareClaudeHookRequest({ session_id: session, tool_use_id: 'toolu_rejected', hook_event_name: 'PreToolUse' }, root);
+  assert.equal(await discardClaudeHookRequest('claude-code', meta('toolu_rejected'), root), true);
+  assert.deepEqual(readdirSync(root), []);
+  // 会話終了の印が先に付いていても消す。
+  const closed = request(root, 'toolu_closed_first');
+  closeClaudeParentSession({ session_id: closed.parent.session_id }, root);
+  assert.deepEqual(readdirSync(closed.dir).sort(), ['closed.json', 'request.json']);
+  assert.equal(await discardClaudeHookRequest('claude-code', meta('toolu_closed_first'), root), true);
+  assert.deepEqual(readdirSync(root), []);
+  // 消した後に会話が終わっても、見回りは止まらない。
+  closeClaudeParentSession({ session_id: session }, root);
+});
+
+test('誤りで返す時も、配送を結んだ置き場と、他の物には触れない', async t => {
+  const root = fresh(t);
+  const meta = id => ({ 'claudecode/toolUseId': id });
+  // 配送を結んだ後に誤りで返す呼び出し。送り手が待っているか、届かなかった時の材料になる。
+  const bound = request(root, 'toolu_bound');
+  bindClaudeParentDelivery(profile, bound.parent, randomUUID());
+  assert.equal(await discardClaudeHookRequest('claude-code', meta('toolu_bound'), root), false);
+  assert.deepEqual(readdirSync(bound.dir).sort(), ['delivery.json', 'request.json']);
+  // この製品の依頼の置き場に見えない物。
+  mkdirSync(join(root, 'someone-else')); writeFileSync(join(root, 'someone-else', 'notes.txt'), '');
+  assert.equal(await discardClaudeHookRequest('claude-code', meta('someone-else'), root), false);
+  assert.deepEqual(readdirSync(join(root, 'someone-else')), ['notes.txt']);
+  // Claude Codeでない呼び出し元、番号の無い要求、番号として読めない値、置き場の無い番号。
+  const other = request(root, 'toolu_other_client');
+  assert.equal(await discardClaudeHookRequest('codex-mcp-client', meta('toolu_other_client'), root), false);
+  assert.equal(await discardClaudeHookRequest(undefined, meta('toolu_other_client'), root), false);
+  assert.equal(await discardClaudeHookRequest('claude-code', undefined, root), false);
+  assert.equal(await discardClaudeHookRequest('claude-code', {}, root), false);
+  assert.equal(await discardClaudeHookRequest('claude-code', meta('../toolu_other_client'), root), false);
+  assert.equal(await discardClaudeHookRequest('claude-code', meta('toolu_missing'), root), false);
+  assert.equal(await discardClaudeHookRequest('claude-code', meta('toolu_other_client'), join(root, 'missing')), false);
+  assert.deepEqual(readdirSync(other.dir), ['request.json']);
+  assert.deepEqual(readdirSync(root).sort(), ['someone-else', 'toolu_bound', 'toolu_other_client']);
 });

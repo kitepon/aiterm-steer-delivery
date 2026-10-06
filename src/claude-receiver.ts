@@ -91,6 +91,25 @@ export function sweepClaudeHookRequests(root: string, rows: readonly RuntimeProc
   return removed;
 }
 
+/**
+ * 誤りで返す呼び出しの置き場を消し、消したかを返す。製品は、toolの返りを誤り（`isError`）にする時に、返す前に呼ぶ。
+ * Claude Codeは誤りの返りでPostToolUseを走らせないので、配送の無い呼び出しの片付け（runClaudeResultHook）が走らない。
+ * 配送を結んだ置き場は消さない（届かなかった時に原因を調べる材料。見回りが後で消す）。
+ * 片付けの失敗でtoolの返りを変えないよう、投げない。消せなかった置き場は見回りが消す。
+ */
+export async function discardClaudeHookRequest(clientName: string | undefined, metadata: unknown, root: string): Promise<boolean> {
+  if (clientName !== "claude-code") return false;
+  const parsed = requestId.safeParse((metadata as Record<string, unknown> | undefined)?.["claudecode/toolUseId"]);
+  if (!parsed.success) return false;
+  const dir = path.join(root, parsed.data);
+  try {
+    const names = fs.readdirSync(dir);
+    if (names.includes("delivery.json") || !names.every(name => REQUEST_FILES.has(name) || name.endsWith(".tmp"))) return false;
+    await fs.promises.rm(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+    return true;
+  } catch { return false; }
+}
+
 /** 起動時envのsession IDは/clearで古くなるため、実際のPreToolUseとの相関だけを使う。 */
 export function claudeParentFromRequest(profile: ProductProfile, clientName: string | undefined, metadata: unknown, root: string): ClaudeParent | null {
   if (clientName !== "claude-code") return null;

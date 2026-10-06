@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.3
+
+- **`discardClaudeHookRequest`を公開する。** 製品が、toolの返りを誤り（`isError`）にする時に、返す前に呼ぶ。その呼び出しの置き場（`<state_root>/claude-parent-hooks/<tool_use_id>/`）を消し、消したかを返す。Claude Codeは誤りの返りで`PostToolUse`を走らせないので、配送の無い呼び出しの片付けが走らず、`request.json`だけの置き場が1日後の見回りまで残っていた（連携元の本番で、引数の検査で断った呼び出しの置き場が残っているのを見た。Claude Code 2.1.291）。
+  - 配送を結んだ置き場（`delivery.json`がある）は消さない。送り手が待っているか、届かなかった時に原因を調べる材料になる。今までどおり見回りが後で消す。
+  - Claude Codeでない呼び出し元、`toolUseId`の無い要求、置き場の無い番号、この製品の依頼の記録でないfileが入ったdirectoryでは、何もせず`false`を返す。
+  - 投げない。消せなかった置き場は、今までどおり見回りが消す。
+- 呼ばない製品の動きは変わらない。Claude側で断られた呼び出し（引数がtoolの定義に合わない）と打ち切られた呼び出しは、製品へ返りが渡らないので、今までどおり1日後の見回りが消す。
+
 ## 0.2.2
 
 Claude Codeの親への単発配送で、依頼ごとの置き場（`<state_root>/claude-parent-hooks/<tool_use_id>/`）が届いた後も残っていたのを片付けます。APIと記録の形は変わりません。

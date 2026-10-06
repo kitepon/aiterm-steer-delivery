@@ -29,7 +29,7 @@ export {
 
 export {
   claudeParentSchema, prepareClaudeHookRequest, claudeParentFromRequest, verifyClaudeParent, bindClaudeParentDelivery,
-  closeClaudeParentSession, submitClaudeParentAnswer, runClaudeResultHook, type ClaudeParent,
+  closeClaudeParentSession, submitClaudeParentAnswer, runClaudeResultHook, discardClaudeHookRequest, type ClaudeParent,
 } from "./claude-receiver.js";
 export {
   sendClaudeInbox, type ClaudeInboxTarget, type ClaudeInboxSendOptions, type ClaudeInboxSendResult,

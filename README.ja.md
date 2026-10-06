@@ -145,6 +145,8 @@ const { queued_submission_id } = await steer.submitCodexParentAnswer(PROFILE, pa
 
 Claude Code は `claudeParentFromRequest`／`bindClaudeParentDelivery`／`submitClaudeParentAnswer`、Cursor は `cursorParentFromRequest`／`prepareCursorDelivery`／`submitCursorParentAnswer` で同じ流れになります。各 `…ParentFromRequest` は呼び出し元が別のクライアントなら `null` を返すので、順に試せます。Cursor では、hook が会話に結び付けられるよう、ツール結果に配送IDを入れます。`structuredContent` には `parent_delivery: { delivery_id }`、本文には `delivery_id=<uuid>` の行を書きます。
 
+Claude Code は、ツールの返りが誤り（`isError`）の時に `PostToolUse` の hook を走らせません。誤りで返す時は、返す前に `discardClaudeHookRequest(clientName, request.params._meta, claudeHookRoot(PROFILE))` を呼び、その呼び出しの置き場を消します。配送を結んだ置き場は消しません。呼ばなくても、残った置き場は1日後に次の依頼の hook が消します。
+
 **同じ会話へ何通も送る**（channel。例: Peertable がルームの発言を親へ届ける）:
 
 ```js
