@@ -42,7 +42,8 @@ function assertOpen(parent: ClaudeParent): void {
 export function prepareClaudeHookRequest(input: unknown, root: string): void {
   const event = z.object({ session_id: z.uuid(), tool_use_id: requestId, agent_id: z.string().optional() }).parse(input);
   // shellを通す形のhookでは、直接の親はshellになる。shellはこのhookと一緒に終わるので、その先のClaude processを記録する。
-  const owner = hookOwnerProcess(readRuntimeProcesses(), process.ppid);
+  const rows = readRuntimeProcesses();
+  const owner = hookOwnerProcess(rows, process.ppid);
   if (!owner) throw new ClaudeDeliveryError("CLAUDE_PARENT_PROCESS_UNAVAILABLE", "hookを起動した親processを確認できません");
   const dir = path.join(root, event.tool_use_id);
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
@@ -50,6 +51,44 @@ export function prepareClaudeHookRequest(input: unknown, root: string): void {
     request_id: event.tool_use_id, session_id: event.session_id, agent_id: event.agent_id ?? null,
     parent_pid: owner.pid, parent_started_identity: owner.started_identity,
   } satisfies Invocation);
+  // 記録を置いた後に見回る。process表は上で読んだものを使う。見回りの失敗で依頼を止めない。
+  try { sweepClaudeHookRequests(root, rows); } catch { /* 次の依頼でまた見回る */ }
+}
+
+// 届いた依頼の置き場は送り手が消す。見回りが消すのは、届かないまま残った分。
+const STALE_REQUEST_MS = 24 * 60 * 60 * 1000;
+const REQUEST_FILES = new Set(["request.json", "delivery.json", "answer.json", "hook.json", "sending.json", "emitted.json", "failed.json", "closed.json"]);
+
+/**
+ * 届かないまま残った依頼の置き場を消し、消した数を返す。誤りで返った呼び出しや打ち切られた呼び出しはPostToolUseが走らず、
+ * 置き場が残る。Windowsの一時置き場は再起動でも消えない。
+ * 消すのは、最後に書かれてから1日たち、待っている配送が無い置き場だけ。依頼元のClaude processが居て、配送を結んであり、
+ * まだ出し終えていない置き場は、何日たっても残す（子が長く動いている配送）。1日は、届かなかった時に原因を調べる間。
+ */
+export function sweepClaudeHookRequests(root: string, rows: readonly RuntimeProcess[], now: number = Date.now()): number {
+  let entries: fs.Dirent[];
+  try { entries = fs.readdirSync(root, { withFileTypes: true }); } catch { return 0; }
+  let removed = 0;
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const dir = path.join(root, entry.name);
+    try {
+      if (now - fs.statSync(dir).mtimeMs < STALE_REQUEST_MS) continue;
+      const names = fs.readdirSync(dir);
+      // この製品の依頼の置き場に見えない物には触れない。
+      if (!names.every(name => REQUEST_FILES.has(name) || name.endsWith(".tmp"))) continue;
+      if (names.some(name => now - fs.statSync(path.join(dir, name)).mtimeMs < STALE_REQUEST_MS)) continue;
+      if (names.includes("delivery.json") && !names.includes("emitted.json")) {
+        // 依頼元を読めない置き場には、もう誰も届けられない。
+        let invocation: Invocation | undefined;
+        try { invocation = invocationSchema.parse(JSON.parse(fs.readFileSync(path.join(dir, "request.json"), "utf8"))); } catch { /* 消す */ }
+        if (invocation && rows.find(row => row.pid === invocation.parent_pid)?.started_identity === invocation.parent_started_identity) continue;
+      }
+      fs.rmSync(dir, { recursive: true, force: true });
+      removed += 1;
+    } catch { /* 読めない・消せない置き場は次の見回りへ回す */ }
+  }
+  return removed;
 }
 
 /** 起動時envのsession IDは/clearで古くなるため、実際のPreToolUseとの相関だけを使う。 */
@@ -80,13 +119,18 @@ export function bindClaudeParentDelivery(profile: ProductProfile, parent: Claude
 export function closeClaudeParentSession(input: unknown, root: string): void {
   const { session_id } = z.object({ session_id: z.uuid() }).parse(input);
   if (!fs.existsSync(root)) return;
+  let failure: unknown;
   for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
-    const file = path.join(root, entry.name, "request.json");
-    if (!fs.existsSync(file)) continue;
-    const invocation = invocationSchema.parse(JSON.parse(fs.readFileSync(file, "utf8")));
-    if (invocation.session_id === session_id) writeJson0600(path.join(root, entry.name, "closed.json"), { session_id });
+    // 読めない記録（形の違う古い残り、送り手や見回りが消している途中の置き場）は飛ばす。1つで止まると、この会話の残りの依頼を閉じられない。
+    let invocation: Invocation;
+    try { invocation = invocationSchema.parse(JSON.parse(fs.readFileSync(path.join(root, entry.name, "request.json"), "utf8"))); }
+    catch { continue; }
+    if (invocation.session_id !== session_id) continue;
+    try { writeJson0600(path.join(root, entry.name, "closed.json"), { session_id }); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") failure ??= error; }
   }
+  if (failure) throw failure;
 }
 
 function assertParentAlive(invocation: Invocation): void {
@@ -136,6 +180,9 @@ export async function submitClaudeParentAnswer(
     if (emitted()) return true;
     throw gone;
   });
+  // 届いた依頼の置き場を読む物は、もう無い。届かなかった時は消さず、原因を調べる材料として残す。
+  // 片付けの失敗を配送の失敗にしない（消せなかった置き場は、後の見回りが消す）。
+  try { await fs.promises.rm(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 }); } catch { /* 見回りへ回す */ }
   return { queued_submission_id: null };
 }
 

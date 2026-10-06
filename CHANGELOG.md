@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.2
+
+Claude Codeの親への単発配送で、依頼ごとの置き場（`<state_root>/claude-parent-hooks/<tool_use_id>/`）が届いた後も残っていたのを片付けます。APIと記録の形は変わりません。
+
+- **届いた依頼の置き場を、送り手が消す。** `submitClaudeParentAnswer`は、受信hookが本文を出し終えた記録（`emitted.json`）を確かめた後に、置き場ごと消す。今までは届いた子1つにつき置き場が1つ残り、Windowsの一時置き場では再起動でも消えなかった（18日前の分が残っていた）。消せなかった時も配送は成功のまま返す。届かなかった時（誤りで返す時）は消さず、原因を調べる材料として残す。
+- **届かないまま残った置き場を、PreToolUseのhookが見回って消す。** 誤りで返った呼び出しや打ち切られた呼び出しはPostToolUseが走らず、`request.json`だけの置き場が残っていた。消すのは、最後に書かれてから1日たち、待っている配送が無い置き場（配送を結んでいない、依頼元のClaude processが居ない、出し終えている、依頼元を読めない）。依頼元が居て配送を結んであり、まだ出し終えていない置き場は、何日たっても残す。この製品の依頼の記録でないfileが入ったdirectoryには触れない。process表は、hookが親を記録するために読んだものを使い、読む回数は増えない。
+- **会話終了の見回り（`closeClaudeParentSession`）が、読めない`request.json`で止まらない。** 今までは1つでも読めないと例外で終わり、その会話の残りの依頼を閉じなかった。読めない記録と、消えている途中の置き場は飛ばす。
+- 依頼元のClaude processが居なくなってから1日より後に子が終わった配送は、置き場が消えているので、`CLAUDE_PARENT_PROCESS_CLOSED`ではなく`CLAUDE_PARENT_HOOK_UNAVAILABLE`で返る（どちらも届けていない。OSの再起動で一時置き場が消えた後と同じ）。
+
 ## 0.2.1
 
 - `withCodexReceiver`の`runtime`に`env`を足す。Codex App Serverを起こす環境を渡せる（省略すると、今までどおりこのprocessの環境）。`CODEX_HOME`は常に`parent.codex_home`で上書きする。Aitermが、認証sessionへ引き継いだ環境のままCodexのログインの状態を公式App Serverへ聞くために使う。
