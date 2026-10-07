@@ -22,6 +22,11 @@ export {
 } from "./codex-receiver.js";
 export { runCodexResultHook } from "./codex-hooks.js";
 export {
+  findAitermDeliveryProvider, verifyCodexParentViaAiterm, submitCodexParentAnswerViaAiterm, codexDeliveryStateViaAiterm, codexDeliveryDetailViaAiterm,
+  AITERM_PARENT_DELIVERY_SCHEMA, AITERM_DELIVERY_PROVIDER_SCHEMA,
+  type AitermDeliveryProvider, type AitermProviderOptions, type AitermDeliveryDetail,
+} from "./aiterm-provider.js";
+export {
   codexHookCommand, processCodexHome, mergeCodexParentHooks, planCodexParentHooks, writeCodexHookPlan, applyCodexHookPlan, verifyCodexHookRegistration, configureCodexSteer,
   type CodexHookMove, type CodexHookPlan,
   type CodexSteerAction, type CodexSteerResult, type CodexSteerRuntime,

@@ -147,6 +147,22 @@ Claude Code and Cursor follow the same shape with `claudeParentFromRequest` / `b
 
 Claude Code does not run the `PostToolUse` hook when a tool result is an error (`isError`). When you return an error, call `discardClaudeHookRequest(clientName, request.params._meta, claudeHookRoot(PROFILE))` before returning, to remove that call's request directory. A directory with a bound delivery is kept. If you do not call it, the next request's hook removes the leftover after one day.
 
+**Deliver to a Codex parent without registering product hooks** (ask Aiterm's parent delivery):
+
+On a machine with Aiterm (0.56.0 or later) installed, a product can hand a final answer to Aiterm instead of owning Codex hooks. Aiterm's registered hooks and the official queue deliver it. The product never writes Aiterm's files.
+
+```js
+const parent = steer.codexParentFromRequest(clientName, request.params._meta);
+const { steer: mode } = await steer.verifyCodexParentViaAiterm(parent);   // "enabled" | "disabled"
+await steer.submitCodexParentAnswerViaAiterm(parent, randomUUID(), text);  // a fresh UUID per message
+await steer.codexDeliveryDetailViaAiterm(parent, deliveryId);              // { state, hook, turn_id, queued }
+```
+
+- Three things are reported separately. `steer` from `verify` is about configuration (`enabled`: Aiterm's hooks are registered and trusted, and the parent started after they were installed; `disabled`: official queue only, so the text arrives after the turn ends). The result of `submit` is the queue's acceptance. Actual arrival is read with `codexDeliveryDetailViaAiterm` (`hook: "emitted"` with `turn_id`: Aiterm's hook put the text into that turn; `queued`: whether it is still in the official queue).
+- Failures are `CodexDeliveryError` as before (`delivery_code`, `outcome_unknown`), carrying the reason Aiterm returned. When Aiterm's command is missing, too old, or returns something unreadable, the error is `AITERM_PROVIDER_UNAVAILABLE`; there is no fallback to another route. Reusing a delivery id is refused with `PARENT_DELIVERY_DUPLICATE`.
+- Aiterm's command (`aiterm-parent-delivery`) is located from the `cli` option or `AITERM_PARENT_DELIVERY_CLI`, then `~/.config/aiterm-mcp/delivery-provider.json` written by `aiterm-setup`, then `PATH`. `findAitermDeliveryProvider()` shows what was found.
+- Remove Codex hooks a product registered earlier with `configureCodexSteer(PROFILE, "disable", { hook })`. Trust for other hooks that move is copied to their new positions.
+
 **Many messages to one conversation** (channels, e.g. Peertable's room messages to the parent):
 
 ```js

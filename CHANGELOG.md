@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0
+
+Codexの親へ、製品のhookを登録せずに届ける入口を足します。今までのAPIと記録の形は変わりません。
+
+- **Aitermの親配送へ頼む入口を公開する。** `verifyCodexParentViaAiterm(parent)`・`submitCodexParentAnswerViaAiterm(parent, deliveryId, text)`・`codexDeliveryStateViaAiterm(parent, deliveryId)`・`codexDeliveryDetailViaAiterm(parent, deliveryId)`・`findAitermDeliveryProvider()`。Aiterm（0.56.0以上）が持つ命令`aiterm-parent-delivery`を探して呼ぶ。届けるのはAitermが登録したhookと公式キューで、製品はCodex用のhookを持たず、Aitermの置き場のfileも書かない。
+  - 設定・受付・実際に届いた事を分けて返す。`verify`の`steer`は設定（`enabled`＝hookが登録・承認済みで親がhookの導入後に起きている、`disabled`＝公式キューだけ）。`submit`は公式キューの受付。届き方は`codexDeliveryDetailViaAiterm`（`hook: "emitted"`と`turn_id`＝hookがその番へ本文を入れた、`queued`＝今も公式キューにあるか）。
+  - 失敗は今までどおり`CodexDeliveryError`（`delivery_code`・`outcome_unknown`）。Aitermの命令が見つからない・古い・返りを読めない時は`AITERM_PROVIDER_UNAVAILABLE`で断り、ほかの届け方へ切り替えない。本文を渡した後に返りを読めなかった時だけ`outcome_unknown`が真になる。
+  - 命令は、引数`cli`・環境変数`AITERM_PARENT_DELIVERY_CLI`、`aiterm-setup`が残す`~/.config/aiterm-mcp/delivery-provider.json`、`PATH`の順に探す。明示した場所が使えない時は、別の場所へ移らない。
+- 製品が前に登録したCodexのhookを外す入口は、今までの`configureCodexSteer(profile, "disable", { hook })`。変えていない。
+
 ## 0.2.3
 
 - **`discardClaudeHookRequest`を公開する。** 製品が、toolの返りを誤り（`isError`）にする時に、返す前に呼ぶ。その呼び出しの置き場（`<state_root>/claude-parent-hooks/<tool_use_id>/`）を消し、消したかを返す。Claude Codeは誤りの返りで`PostToolUse`を走らせないので、配送の無い呼び出しの片付けが走らず、`request.json`だけの置き場が1日後の見回りまで残っていた（連携元の本番で、引数の検査で断った呼び出しの置き場が残っているのを見た。Claude Code 2.1.291）。

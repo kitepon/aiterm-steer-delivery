@@ -147,6 +147,22 @@ Claude Code は `claudeParentFromRequest`／`bindClaudeParentDelivery`／`submit
 
 Claude Code は、ツールの返りが誤り（`isError`）の時に `PostToolUse` の hook を走らせません。誤りで返す時は、返す前に `discardClaudeHookRequest(clientName, request.params._meta, claudeHookRoot(PROFILE))` を呼び、その呼び出しの置き場を消します。配送を結んだ置き場は消しません。呼ばなくても、残った置き場は1日後に次の依頼の hook が消します。
 
+**Codex の親へ、製品の hook を登録せずに届ける**（Aiterm の親配送へ頼む）:
+
+Aiterm（0.56.0 以上）を導入済みの端末では、製品は Codex 用の hook を持たずに、確定した本文を Aiterm へ渡せます。Aiterm が登録した hook と公式キューで届きます。製品は Aiterm の置き場のファイルを書きません。
+
+```js
+const parent = steer.codexParentFromRequest(clientName, request.params._meta);
+const { steer: mode } = await steer.verifyCodexParentViaAiterm(parent);   // "enabled" | "disabled"
+await steer.submitCodexParentAnswerViaAiterm(parent, randomUUID(), text);  // 配送IDは本文ごとに新しいUUID
+await steer.codexDeliveryDetailViaAiterm(parent, deliveryId);              // { state, hook, turn_id, queued }
+```
+
+- 3つを分けて返します。`verify` の `steer` は設定の話です（`enabled` = Aiterm の hook が登録・承認済みで、親が hook の導入後に起きている。`disabled` = 公式キューだけで、ターンが終わってから届く）。`submit` の返りは公式キューの受付です。実際に届いたかは `codexDeliveryDetailViaAiterm` で読みます（`hook: "emitted"` と `turn_id` = Aiterm の hook がそのターンへ本文を入れた。`queued` = 今も公式キューに残っているか）。
+- 失敗は今までどおり `CodexDeliveryError` です（`delivery_code`・`outcome_unknown`）。Aiterm が返した理由をそのまま写します。Aiterm の命令が見つからない・古い・返りを読めない時は `AITERM_PROVIDER_UNAVAILABLE` で、ほかの届け方へは切り替えません。同じ配送IDをもう一度渡すと `PARENT_DELIVERY_DUPLICATE` で断ります。
+- Aiterm の命令（`aiterm-parent-delivery`）は、引数 `cli`・環境変数 `AITERM_PARENT_DELIVERY_CLI`、`aiterm-setup` が残す `~/.config/aiterm-mcp/delivery-provider.json`、`PATH` の順に探します。`findAitermDeliveryProvider()` で見つかった場所を確かめられます。
+- 製品が前に登録した Codex の hook は、`configureCodexSteer(PROFILE, "disable", { hook })` で外します。後ろにある他の hook の承認は新しい位置へ写します。
+
 **同じ会話へ何通も送る**（channel。例: Peertable がルームの発言を親へ届ける）:
 
 ```js
