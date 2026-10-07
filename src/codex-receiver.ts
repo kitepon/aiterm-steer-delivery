@@ -5,7 +5,7 @@ import { createInterface } from "node:readline";
 import * as path from "node:path";
 import { CodexDeliveryError } from "./errors.js";
 import { codexHookDirectory, type ProductProfile } from "./profile.js";
-import { currentCodexDesktopBinary, realCodexHome, resolveCodexExecutable } from "./codex-binary.js";
+import { codexSpawnEnv, currentCodexDesktopBinary, realCodexHome, resolveCodexExecutable } from "./codex-binary.js";
 import { finishCodexHookSubmission, assertCodexHookParentCurrent, assertCodexHooksReady, readCodexHookConfig, registerCodexHookInput } from "./codex-hook-state.js";
 
 export interface CodexParent {
@@ -29,7 +29,10 @@ export interface CodexReceiverRuntime {
   args?: string[];
   timeout_ms?: number;
   hook_directory?: string;
-  /** App Serverを起こす環境。省略すると、このprocessの環境。`CODEX_HOME`は常に`parent.codex_home`で上書きする。 */
+  /**
+   * App Serverを起こす環境。省略すると、このprocessの環境。`CODEX_HOME`は常に`parent.codex_home`で上書きする。
+   * PATHにこのprocessのnodeの場所が無い時は、頭へ足す（nodeで動くCodexの起動役を起こすため）。
+   */
   env?: NodeJS.ProcessEnv;
 }
 
@@ -51,7 +54,7 @@ export async function withCodexReceiver<T>(
   if (!executable) throw new CodexDeliveryError("CODEX_RECEIVER_UNAVAILABLE", "Codexの実行ファイルを確認できません");
   const child = spawn(executable, runtime.args ?? ["app-server", "--listen", "stdio://"], {
     stdio: ["pipe", "pipe", "ignore"],
-    env: { ...(runtime.env ?? process.env), CODEX_HOME: parent.codex_home },
+    env: { ...codexSpawnEnv(runtime.env ?? process.env), CODEX_HOME: parent.codex_home },
     windowsHide: true,
   });
   const pending = new Map<number, Pending>();

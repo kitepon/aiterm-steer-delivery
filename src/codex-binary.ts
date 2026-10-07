@@ -84,8 +84,24 @@ export function resolveCodexExecutable(): string | null {
   return null;
 }
 
+/**
+ * Codexを起こす時の環境。npm版のCodexは、nodeで動く起動役（1行目が`#!/usr/bin/env node`）で、起こす側のPATHにnodeの場所が
+ * 無いと起きない（exit 127。素のsshの環境、製品の常駐process、アプリ配下のprocessはPATHが細い事がある）。
+ * このprocessを動かしているnodeの場所を、PATHに無い時だけ頭へ足した写しを返す。既にあれば、並びも中身も変えない。
+ */
+export function codexSpawnEnv(env: NodeJS.ProcessEnv = process.env, node = process.execPath, platform: NodeJS.Platform = process.platform): NodeJS.ProcessEnv {
+  const windows = platform === "win32";
+  // Windowsの環境変数名は大文字小文字を区別しない（`Path`で入っている事が多い）。
+  const key = Object.keys(env).find(name => windows ? name.toLowerCase() === "path" : name === "PATH") ?? "PATH";
+  const delimiter = windows ? ";" : ":";
+  const directory = (windows ? path.win32 : path.posix).dirname(node);
+  const current = env[key] ?? "";
+  const listed = current.split(delimiter).some(part => windows ? part.toLowerCase() === directory.toLowerCase() : part === directory);
+  return listed ? env : { ...env, [key]: current ? `${directory}${delimiter}${current}` : directory };
+}
+
 function command(executable: string, args: string[]): string {
-  const result = spawnSync(executable, args, { encoding: "utf8", timeout: 15_000 });
+  const result = spawnSync(executable, args, { encoding: "utf8", timeout: 15_000, env: codexSpawnEnv() });
   if (result.error || result.status !== 0) throw new SetupError("codex_steer_setup_failed", `${path.basename(executable)}を実行できません`);
   return result.stdout.trim();
 }
@@ -155,7 +171,7 @@ Join-Path $packages[0].InstallLocation 'app/resources'`,
 
 /** CLIが対応する最低版（公式キューとhookの取込み）。 */
 function assertSteerVersion(executable: string, subject: string): void {
-  const result = spawnSync(executable, ["--version"], { encoding: "utf8", windowsHide: true, timeout: 15_000 });
+  const result = spawnSync(executable, ["--version"], { encoding: "utf8", windowsHide: true, timeout: 15_000, env: codexSpawnEnv() });
   if (result.error || result.status !== 0) throw new SetupError("codex_binary_unavailable", `${subject}を起動できません`);
   const match = /codex-cli (\d+)\.(\d+)\.(\d+)/.exec(result.stdout ?? "");
   if (!match || (Number(match[1]) === 0 && Number(match[2]) < 154)) {

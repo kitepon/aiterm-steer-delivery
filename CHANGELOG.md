@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.1
+
+Codexの設定と起動の、2つの弱さを直します。APIと記録の形は変わりません。
+
+- **登録の間に終わったCodexを、再起動待ちの記録（`stale_processes`）へ残さない。** `configureCodexSteer(profile, "enable", …)`は、登録より前から動いているCodexを再起動待ちとして記録する。ほかの導入が設定のために一時的に起こしたCodex（公式App Serverを起こして止める形）が、止まり切る前のprocessの一覧に載り、記録へ残っていた。承認の確かめの後にもう一度一覧を取り、居なくなった物を外してから保存する。返す状態（`ready`／`restart_required`）も、その同じ一覧で決める。
+  - 居ないprocessは、今までも照合で当たらない（pidと開始時刻の組で見る）。記録に残るだけで、配送は止まっていなかった。
+- **Codexを起こす時、PATHにこのprocessのnodeの場所が無ければ足す。** npm版のCodexは、nodeで動く起動役（1行目が`#!/usr/bin/env node`）で、起こす側のPATHにnodeの場所が無いと起きない（exit 127）。素のsshの環境、製品の常駐process、アプリ配下のprocessから`withCodexReceiver`を呼ぶと、`CODEX_RECEIVER_TRANSPORT_FAILED`で断っていた。本文は送られていなかった。
+  - `withCodexReceiver`と、Codexの版を確かめる所が、起こす環境のPATHの頭へnodeの場所を足す。既にあれば、並びも中身も変えない。渡した`env`そのものは書き換えない。
+  - 同じ形の環境を自分で作る製品のために、`codexSpawnEnv(env?)`を公開する。
+  - Desktop同梱のCodex（macOS・Windows）は、元から当たらない。
+
 ## 0.3.0
 
 Codexの親へ、製品のhookを登録せずに届ける入口を足します。今までのAPIと記録の形は変わりません。

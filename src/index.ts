@@ -8,7 +8,7 @@ export { resolveWindowsPowerShell7, quotePowerShell, windowsPowerShellSync, wind
 export { setupNodeExecutable } from "./setup-node.js";
 
 export {
-  realCodexHome, resolveCodexExecutable, desktopBundledCodex, findDesktopBinary, findWindowsCodexCache,
+  realCodexHome, resolveCodexExecutable, codexSpawnEnv, desktopBundledCodex, findDesktopBinary, findWindowsCodexCache,
   findWindowsCodexBinary, findLinuxDesktopBinary, findCliBinary, findSteerBinary, platformDesktopFinder, currentCodexDesktopBinary, type DesktopBinaryFinder,
 } from "./codex-binary.js";
 export {
