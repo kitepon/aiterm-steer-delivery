@@ -107,6 +107,30 @@ test('再起動待ちは、hookを入れたCODEX_HOMEで動くCodexだけにす�
   assert.deepEqual(readCodexHookConfig(profile(root)).stale_processes.map(row => row.pid), [1, 3]);
 });
 
+test('登録の間に終わったCodexは、再起動待ちに残さない', async t => {
+  const root = fresh(t), home = join(root, 'codex'); mkdirSync(home);
+  const hook = join(root, 'demo-codex-hook.js'); writeFileSync(hook, '');
+  const binary = '/usr/local/bin/codex';
+  // 1回目の一覧（hookを書いた直後）には、ほかの導入が起こして止めたCodex（30・31）がまだ居る。承認の確かめの後には居ない。
+  const helper = [{ pid: 30, started_identity: 'h', parent_pid: 1, command: `node ${binary} app-server --listen stdio://` },
+    { pid: 31, started_identity: 'h', parent_pid: 30, command: 'codex app-server --listen stdio://', executable: binary }];
+  const seat = { pid: 40, started_identity: 's', parent_pid: 1, command: `node ${binary}` };
+  let verified = false;
+  const result = await configureCodexSteer(profile(root), 'enable', { hook, platform: 'linux', codex_home: home, node: process.execPath,
+    findBinary: () => binary, processes: () => verified ? [seat] : [...helper, seat], legacy: () => null, verify: async () => { verified = true; }, codexHomeOf: () => home });
+  assert.equal(result.status, 'restart_required');
+  assert.deepEqual(readCodexHookConfig(profile(root)).stale_processes, [{ pid: 40, started_identity: 's' }]);
+
+  // 動いている席が無ければ、終わった2つだけを見て再起動待ちにしない。
+  const second = fresh(t), other = join(second, 'codex'); mkdirSync(other);
+  const hook2 = join(second, 'demo-codex-hook.js'); writeFileSync(hook2, '');
+  let checked = false;
+  const clean = await configureCodexSteer(profile(second), 'enable', { hook: hook2, platform: 'linux', codex_home: other, node: process.execPath,
+    findBinary: () => binary, processes: () => checked ? [] : helper, legacy: () => null, verify: async () => { checked = true; }, codexHomeOf: () => other });
+  assert.equal(clean.status, 'ready');
+  assert.deepEqual(readCodexHookConfig(profile(second)).stale_processes, []);
+});
+
 test('Linuxのprocessの環境からCODEX_HOMEを読み、無ければHOME/.codexとする', async () => {
   const { processCodexHome } = await import('../dist/index.js');
   const env = entries => () => Buffer.from(entries.join('\0') + '\0');

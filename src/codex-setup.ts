@@ -282,8 +282,12 @@ export async function configureCodexSteer(profile: ProductProfile, action: Codex
   const config: CodexHookConfig = { schema: profile.codex_hook_schema, enabled: true,
     codex_home: runtime.codex_home, binary, command, node, hook: runtime.hook, stale_processes: stale };
   await runtime.verify(config, true);
+  // 登録の間に終わったprocessは、起き直しを待つ相手から外す。ほかの導入が設定のために一時的に起こしたCodex
+  // （公式App Serverを起こして止める形）が、止まり切る前の一覧に載る事がある（BellTeamの起動、2026-10-07）。
+  const alive = runtime.processes();
+  const saved: CodexHookConfig = { ...config, stale_processes: config.stale_processes.filter(stale => alive.some(row => row.pid === stale.pid && row.started_identity === stale.started_identity)) };
   // 解除が中断しても、次のenableで移行を続行できるよう所有情報を先に保存する。
-  save(config);
+  save(saved);
   if (legacy?.enabled) await runtime.disableLegacy();
-  return needsRestart(config) ? { status: "restart_required", reason_code: "codex_restart_required" } : { status: "ready" };
+  return saved.stale_processes.length ? { status: "restart_required", reason_code: "codex_restart_required" } : { status: "ready" };
 }
