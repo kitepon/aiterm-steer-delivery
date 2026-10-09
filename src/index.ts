@@ -22,6 +22,11 @@ export {
 } from "./codex-receiver.js";
 export { runCodexResultHook } from "./codex-hooks.js";
 export {
+  readCodexTurnTail, codexThreadUrl, codexThreadOpener, codexWakeDirectory, readCodexWakeResult, wakeCodexParentIfAsleep,
+  codexWakeWatchEnabled, startCodexWakeWatch, runCodexWakeMain, serializeWakeProfile, CODEX_WAKE_PAYLOAD_ENV,
+  type CodexTurnTail, type CodexThreadOpener, type CodexWakeOutcome, type CodexWakeResult, type CodexWakeOptions,
+} from "./codex-wake.js";
+export {
   findAitermDeliveryProvider, verifyCodexParentViaAiterm, submitCodexParentAnswerViaAiterm, codexDeliveryStateViaAiterm, codexDeliveryDetailViaAiterm,
   AITERM_PARENT_DELIVERY_SCHEMA, AITERM_DELIVERY_PROVIDER_SCHEMA,
   type AitermDeliveryProvider, type AitermProviderOptions, type AitermDeliveryDetail,

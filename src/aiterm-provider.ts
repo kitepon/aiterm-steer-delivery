@@ -8,6 +8,7 @@ import * as path from "node:path";
 import { z } from "zod";
 import { CodexDeliveryError } from "./errors.js";
 import type { CodexParent, CodexParentThread } from "./codex-receiver.js";
+import type { CodexWakeResult } from "./codex-wake.js";
 
 export const AITERM_PARENT_DELIVERY_SCHEMA = "aiterm.parent-delivery.v1";
 export const AITERM_DELIVERY_PROVIDER_SCHEMA = "aiterm.delivery-provider.v1";
@@ -145,6 +146,8 @@ export type AitermDeliveryDetail = {
   /** 今も公式キューに残っているか。確かめられなかった時はnull。 */
   queued: boolean | null;
   queue_error?: string;
+  /** 寝ている会話を起こす見張りの結果（Aiterm 0.58.0以上）。見張りが終わるまで、または起こさない環境では付かない。 */
+  wake?: CodexWakeResult;
 };
 
 /** 届き方の事実を読む。受け付けた事と、実際に番へ入った事を分けて返す。 */
@@ -152,7 +155,8 @@ export async function codexDeliveryDetailViaAiterm(parent: CodexParent, delivery
   z.uuid().parse(deliveryId);
   const value = await callAiterm(["codex", "state", ...target(parent), "--delivery", deliveryId], null, options, false);
   return { state: value.state ?? null, hook: value.hook ?? null, turn_id: value.turn_id ?? null, queued: value.queued ?? null,
-    ...(typeof value.queue_error === "string" ? { queue_error: value.queue_error } : {}) };
+    ...(typeof value.queue_error === "string" ? { queue_error: value.queue_error } : {}),
+    ...(value.wake !== null && typeof value.wake === "object" ? { wake: value.wake as CodexWakeResult } : {}) };
 }
 
 /** 送る途中の状態だけを返す（`codexHookDeliveryState`と同じ値）。 */

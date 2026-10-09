@@ -1,5 +1,6 @@
 // Codex親への配送。公式App Serverのキュー（thread/queue/add）へ一度だけ入れる。
 // 親が作業中なら製品の同期hook（PostToolUse／Stop）が同じturnへ取り込み、idleなら公式キューが通常の入力として届ける。
+// 公式キューが番にするのは、どこかのCodexのprocessに載っている会話だけ。寝ている会話は、入れた後の見張り（codex-wake）が起こす。
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 import * as path from "node:path";
@@ -7,6 +8,7 @@ import { CodexDeliveryError } from "./errors.js";
 import { codexHookDirectory, type ProductProfile } from "./profile.js";
 import { codexSpawnEnv, currentCodexDesktopBinary, realCodexHome, resolveCodexExecutable } from "./codex-binary.js";
 import { finishCodexHookSubmission, assertCodexHookParentCurrent, assertCodexHooksReady, readCodexHookConfig, registerCodexHookInput } from "./codex-hook-state.js";
+import { startCodexWakeWatch } from "./codex-wake.js";
 
 export interface CodexParent {
   thread_id: string;
@@ -34,6 +36,11 @@ export interface CodexReceiverRuntime {
    * PATHにこのprocessのnodeの場所が無い時は、頭へ足す（nodeで動くCodexの起動役を起こすため）。
    */
   env?: NodeJS.ProcessEnv;
+  /**
+   * キューへ入れた後に、寝ている会話を起こす見張りを起こすか。省略すると、`runtime`を渡さない呼び出し（製品の本番の道）でだけ起こす。
+   * `runtime`を渡す呼び出し（試験のfixture）では、trueを渡した時だけ起こす。
+   */
+  wake?: boolean;
 }
 
 type Pending = {
@@ -144,7 +151,10 @@ export async function verifyCodexParent(profile: ProductProfile, parent: CodexPa
   }, runtime);
 }
 
-/** 確定した本文を公式キューへ一度だけ入れる。受付IDを返す。受付の成否が不明な失敗はoutcome_unknownで区別する。 */
+/**
+ * 確定した本文を公式キューへ一度だけ入れる。受付IDを返す。受付の成否が不明な失敗はoutcome_unknownで区別する。
+ * 入れた後、寝ている会話を起こす見張りを別のprocessで起こす（`startCodexWakeWatch`）。見張りの成否は、受付の結果を変えない。
+ */
 export async function submitCodexParentAnswer(
   profile: ProductProfile,
   parent: CodexParent,
@@ -155,7 +165,8 @@ export async function submitCodexParentAnswer(
   const root = runtime ? runtime.hook_directory : codexHookDirectory(profile);
   const hook = root && readCodexHookConfig(profile, root)?.enabled;
   if (hook) registerCodexHookInput(parent.codex_home, parent.thread_id, deliveryId, text, root);
-  try { return await withCodexReceiver(profile, parent, async (request) => {
+  let accepted: { queued_submission_id: string };
+  try { accepted = await withCodexReceiver(profile, parent, async (request) => {
     const result = await request("thread/queue/add", {
       threadId: parent.thread_id,
       input: [{ type: "text", text, text_elements: [] }],
@@ -167,4 +178,6 @@ export async function submitCodexParentAnswer(
     return { queued_submission_id: result.queuedSubmission.id };
   }, runtime); }
   finally { if (hook) finishCodexHookSubmission(parent.codex_home, parent.thread_id, deliveryId, root); }
+  if (runtime?.wake ?? !runtime) startCodexWakeWatch(profile, parent, deliveryId);
+  return accepted;
 }

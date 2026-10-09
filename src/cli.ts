@@ -5,7 +5,8 @@
 //   aiterm-steer-delivery --profile <file> codex parent --client <name> --meta <json>
 //   aiterm-steer-delivery --profile <file> codex verify --thread <uuid> [--codex-home <dir>]   → thread{thread_id,cwd,source}
 //   aiterm-steer-delivery --profile <file> codex submit --thread <uuid> --delivery <uuid> --text-file <file|-> [--codex-home <dir>]
-//   aiterm-steer-delivery --profile <file> codex state  --thread <uuid> --delivery <uuid> [--codex-home <dir>]
+//   aiterm-steer-delivery --profile <file> codex state  --thread <uuid> --delivery <uuid> [--codex-home <dir>]   → state と、見張りが終わっていれば wake（寝ている会話を起こした結果）
+//   aiterm-steer-delivery --profile <file> codex wake   --thread <uuid> --delivery <uuid> [--delay-ms <n>] [--codex-home <dir>]   → wake（今すぐ見直して、寝ていれば起こす）
 //   aiterm-steer-delivery --profile <file> codex setup <enable|disable|status>
 //
 // codex setupは、Codexのhookから起動する入口（codex-hook.js）と製品の識別情報をhook directoryへ置いて登録する。
@@ -19,6 +20,7 @@ import { codexHookDirectory } from "./profile.js";
 import { realCodexHome } from "./codex-binary.js";
 import { codexParentFromRequest, submitCodexParentAnswer, verifyCodexParent, type CodexParent } from "./codex-receiver.js";
 import { codexHookDeliveryState } from "./codex-hook-state.js";
+import { readCodexWakeResult, wakeCodexParentIfAsleep } from "./codex-wake.js";
 import { configureCodexSteer } from "./codex-setup.js";
 import { isDirectExecution } from "./hook-main.js";
 
@@ -71,7 +73,14 @@ export async function runCli(argv: string[]): Promise<unknown> {
     }
     case "state": {
       const target = parent(args);
-      return { state: codexHookDeliveryState(target.codex_home, target.thread_id, z.uuid().parse(required(args, "--delivery")), codexHookDirectory(profile)) };
+      const delivery = z.uuid().parse(required(args, "--delivery"));
+      const wake = readCodexWakeResult(profile, delivery);
+      return { state: codexHookDeliveryState(target.codex_home, target.thread_id, delivery, codexHookDirectory(profile)), ...(wake ? { wake } : {}) };
+    }
+    case "wake": {
+      const delay = option(args, "--delay-ms");
+      return { wake: await wakeCodexParentIfAsleep(profile, parent(args), z.uuid().parse(required(args, "--delivery")),
+        { delay_ms: delay === undefined ? 0 : z.coerce.number().int().min(0).parse(delay) }) };
     }
     case "setup": {
       const action = z.enum(["enable", "disable", "status"]).parse(args[0] ?? "status");

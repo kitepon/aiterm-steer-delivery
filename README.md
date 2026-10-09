@@ -40,7 +40,7 @@ This package is the delivery [Aiterm](https://github.com/kitepon/aiterm-mcp) use
 
 | Parent | How the parent is identified | How text arrives |
 | --- | --- | --- |
-| Codex | `_meta.threadId` of the MCP request | Official App Server queue (`thread/queue/add`). With Steer enabled, your sync `PostToolUse`/`Stop` hooks pull it into the running turn; otherwise the official queue delivers it at the next turn boundary. |
+| Codex | `_meta.threadId` of the MCP request | Official App Server queue (`thread/queue/add`). With Steer enabled, your sync `PostToolUse`/`Stop` hooks pull it into the running turn; otherwise the official queue delivers it at the next turn boundary. A conversation the Codex app has put to sleep is woken by asking the app to open it (see [Sleeping Codex conversations](#sleeping-codex-conversations)). |
 | Claude Code | Your `PreToolUse` hook record + `_meta["claudecode/toolUseId"]` | An `asyncRewake` hook writes the text to stderr and exits 2, waking the session (or steering into the running turn). |
 | Cursor (Desktop and CLI) | Your hook binds the id in your tool result to the real `conversation_id` | `additional_context` on the next tool return while busy; a background receiver process while idle. |
 | Others (Grok, …) | — | A background receiver process (`wait_process`). |
@@ -163,6 +163,20 @@ await steer.codexDeliveryDetailViaAiterm(parent, deliveryId);              // { 
 - Aiterm's command (`aiterm-parent-delivery`) is located from the `cli` option or `AITERM_PARENT_DELIVERY_CLI`, then `~/.config/aiterm-mcp/delivery-provider.json` written by `aiterm-setup`, then `PATH`. `findAitermDeliveryProvider()` shows what was found.
 - Remove Codex hooks a product registered earlier with `configureCodexSteer(PROFILE, "disable", { hook })`. Trust for other hooks that move is copied to their new positions.
 
+#### Sleeping Codex conversations
+
+Codex starts a queued message only in a conversation that some running Codex process has loaded. The Codex app unloads a conversation 60 seconds after nobody is viewing it (`thread_unload_delay_secs`), and from then on its queue is not looked at until the conversation is opened again. Without help, a reply sent to such a conversation waits until a person opens it.
+
+`submitCodexParentAnswer` therefore starts a small watcher in a separate process after the queue accepts the text. About 15 seconds later the watcher looks at the queue again:
+
+- The text is gone: the conversation was loaded and took it (or your hook steered it into the running turn). Nothing else happens.
+- The text is still queued, the conversation belongs to the app (`source` is `vscode`), and its last turn ended normally (or it has no turn yet): the watcher asks the OS to open `codex://threads/<id>`. The app loads the conversation and the official queue starts the turn. The app's window switches to that conversation; on macOS the app is not brought to the front.
+- The conversation is in the middle of a turn, its last turn was interrupted (a person stopped it, or another tool moved the work elsewhere), or it is not an app conversation (a CLI session): the watcher leaves it alone. Codex itself holds the queue of an interrupted conversation until a person sends the next message.
+
+The outcome is saved under `<config_root>/codex-parent-hooks/wake/<delivery id>.json` for three days and can be read with `readCodexWakeResult(PROFILE, deliveryId)`: `delivered`, `running`, `interrupted`, `not_app_thread`, `unknown_state`, `no_opener`, `open_failed`, `woken`, or `opened_still_queued`. The acceptance returned by `submitCodexParentAnswer` does not depend on the watcher.
+
+The watcher runs only where a link can be opened: macOS, Windows, and Linux with a display and a registered `codex` link handler. On servers and in containers nothing is started. Set `AITERM_STEER_CODEX_WAKE=0` to turn it off. To check and wake right now from your own process, call `wakeCodexParentIfAsleep(PROFILE, parent, deliveryId, { delay_ms: 0 })`.
+
 **Many messages to one conversation** (channels, e.g. Peertable's room messages to the parent):
 
 ```js
@@ -219,15 +233,18 @@ Known limit: Claude Code sessions that carry an `agent_id` (started with `--agen
 
 ## Non-Node products
 
-`aiterm-steer-delivery --profile <profile.json> codex <parent|verify|submit|state|setup>` prints one JSON line. `state_root` and `config_root` are absolute paths in the JSON profile. `codex setup enable` registers the package's own Codex hook entry for your profile.
+`aiterm-steer-delivery --profile <profile.json> codex <parent|verify|submit|state|wake|setup>` prints one JSON line. `state_root` and `config_root` are absolute paths in the JSON profile. `codex setup enable` registers the package's own Codex hook entry for your profile.
 
 ```sh
 aiterm-steer-delivery --profile profile.json codex parent --client <name> --meta <json>
 aiterm-steer-delivery --profile profile.json codex verify --thread <uuid> [--codex-home <dir>]
 aiterm-steer-delivery --profile profile.json codex submit --thread <uuid> --delivery <uuid> --text-file <file|-> [--codex-home <dir>]
 aiterm-steer-delivery --profile profile.json codex state  --thread <uuid> --delivery <uuid> [--codex-home <dir>]
+aiterm-steer-delivery --profile profile.json codex wake   --thread <uuid> --delivery <uuid> [--delay-ms <n>] [--codex-home <dir>]
 aiterm-steer-delivery --profile profile.json codex setup  <enable|disable|status>
 ```
+
+`codex submit` starts the watcher described in [Sleeping Codex conversations](#sleeping-codex-conversations); the command returns as soon as the queue accepts the text. `codex state` also returns `wake` once the watcher has saved its outcome. `codex wake` checks and wakes right now.
 
 Success is `{"ok":true,...}`. Failure is `{"ok":false,"code":...,"message":...,"outcome_unknown":...}` with exit code 1.
 

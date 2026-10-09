@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.0
+
+Codexの寝ている会話へ入れた文が、人がその会話を開くまで動かなかったのを直します。今までのAPIの返りは変わりません。
+
+- **起きていた事。** Codexが公式キューの文を番にするのは、その会話を載せている（loaded）Codexのprocessだけ。Codexのアプリは、見ている接続が居なくなって動きの無い会話を60秒で下ろす（`thread_unload_delay_secs`。Codex 0.153.0までは30分）。下ろされた会話のキューは、人がその会話を開くまで誰も見ない。番の途中へ入れる道（hook）と、載っている会話の止まっている所へ届く道は、今までどおり通っていた。
+- **`submitCodexParentAnswer`が、入れた後に「寝ていたら起こす見張り」を別のprocessで起こす。** 約15秒後にキューを見直す。
+  - 文がもう無い（会話が載っていて受け取った、hookが番の途中へ入れた）: 何もしない。
+  - 文が残っていて、アプリの会話（`source`が`vscode`）で、最後の番が普通に終わっている（または番が1つも無い）: OSの口で`codex://threads/<会話>`を開かせる。アプリが会話を載せ、公式キューが番を始める。アプリの画面はその会話へ切り替わる（macOSは`open -g`で、アプリを前面へは出さない。Windowsは`cmd /c start`、Linuxは`xdg-open`）。
+  - 番の途中、最後の番が途中で止められている（人が止めた、ほかの製品が作業を別の会話へ移した）、アプリの会話でない（CLIの席）、会話の記録を読めない: 起こさない。途中で止められた会話は、人が次の文を送るまでCodexがキューを動かさない。
+  - 同じ会話へ続けて届いた時は、30秒の間は開き直さない。
+- **結果を残す。** `<config_root>/codex-parent-hooks/wake/<配送ID>.json`に3日間。`readCodexWakeResult(profile, deliveryId)`で読める（`delivered`・`running`・`interrupted`・`not_app_thread`・`unknown_state`・`no_opener`・`open_failed`・`woken`・`opened_still_queued`）。受付の返り（`queued_submission_id`）は、見張りの成否で変わらない。
+- **見張りを起こすのは、リンクを開く口のある環境だけ。** macOS、Windows、画面のあるLinux（`DISPLAY`か`WAYLAND_DISPLAY`があり、`codex`のリンクの受け手が登録されている）。サーバーやコンテナでは何も起こさない。止める時は環境変数`AITERM_STEER_CODEX_WAKE=0`。
+- **公開した物。** `wakeCodexParentIfAsleep(profile, parent, deliveryId, options?)`（今すぐ見直して起こす）、`startCodexWakeWatch`、`readCodexWakeResult`、`readCodexTurnTail`、`codexThreadUrl`、`codexThreadOpener`、`codexWakeWatchEnabled`、`codexWakeDirectory`。`CodexReceiverRuntime`に`wake`（`runtime`を渡す呼び出しでは、`true`の時だけ見張りを起こす）。
+- **CLI。** `codex submit`は今までどおりすぐ返り、見張りを残す。`codex state`の返りは、見張りが結果を残した後だけ`wake`が付く（それまでは今までと同じ形）。`codex wake --thread --delivery [--delay-ms]`を足す。
+- **Aitermへ頼む入口。** `codexDeliveryDetailViaAiterm`の返りは、Aiterm（0.58.0以上）が見張りの結果を返した時だけ`wake`が付く。
+
 ## 0.3.1
 
 Codexの設定と起動の、2つの弱さを直します。APIと記録の形は変わりません。

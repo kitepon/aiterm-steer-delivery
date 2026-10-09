@@ -30,6 +30,10 @@ function fakeCli(dir, mode, name = 'parent-delivery-cli.js') {
         else if (command === 'submit') out({ ok: true, schema: ${JSON.stringify(SCHEMA)}, queued_submission_id: 'queued-1' });
         else out({ ok: true, schema: ${JSON.stringify(SCHEMA)}, state: null, hook: 'emitted', turn_id: 'turn-1', queued: false });
         break;
+      case 'woken':
+        out({ ok: true, schema: ${JSON.stringify(SCHEMA)}, state: null, hook: null, turn_id: null, queued: false,
+          wake: { delivery_id: process.argv[process.argv.indexOf('--delivery') + 1], thread_id: process.argv[5], outcome: 'woken', turn: 'completed', checked_at: 'c', opened_at: 'o' } });
+        break;
       case 'refuse': out({ ok: false, schema: ${JSON.stringify(SCHEMA)}, code: 'CODEX_STEER_RESTART_REQUIRED', message: 'CODEX_STEER_RESTART_REQUIRED: 親のCodexはhookの導入前から動いています', outcome_unknown: false }); process.exitCode = 1; break;
       case 'unknown': out({ ok: false, schema: ${JSON.stringify(SCHEMA)}, code: 'CODEX_RECEIVER_TIMEOUT', message: 'CODEX_RECEIVER_TIMEOUT: thread/queue/addの応答を確認できません', outcome_unknown: true }); process.exitCode = 1; break;
       case 'garbage': process.stdout.write('not json\\n'); break;
@@ -137,4 +141,12 @@ test('Aitermの命令が無い・古い・返りを読めない時は、別の�
   await assert.rejects(verifyCodexParentViaAiterm(parent, hang), expect(false));
   // nodeを起こせない時は、何も渡していない。
   await assert.rejects(submitCodexParentAnswerViaAiterm(parent, DELIVERY, 'text', { cli: fakeCli(dir, 'ok', 'ok.js'), node: join(dir, 'no-node'), env }), expect(false, /起動できません/));
+});
+
+test('寝ている会話を起こした結果は、Aitermが返した時だけ付く', async t => {
+  const dir = mkdtempSync(join(tmpdir(), 'steer-provider-wake-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const detail = await codexDeliveryDetailViaAiterm(parent, DELIVERY, { cli: fakeCli(dir, 'woken'), env: emptyEnv(dir) });
+  assert.deepEqual(detail, { state: null, hook: null, turn_id: null, queued: false,
+    wake: { delivery_id: DELIVERY, thread_id: parent.thread_id, outcome: 'woken', turn: 'completed', checked_at: 'c', opened_at: 'o' } });
 });
