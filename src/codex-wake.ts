@@ -74,8 +74,9 @@ export function windowsInteractiveSession(env: NodeJS.ProcessEnv = process.env,
 
 /**
  * OSの口で、Codexのアプリにリンクを開かせる関数を返す。口の無い環境ではnull。
- * macOSは`open -g`（アプリを前面へ出さない）、Windowsは`cmd /c start`（人の画面のあるsessionの時だけ）。
- * Linuxは、画面のあるsessionで、リンクの受け手が登録されている時だけ`xdg-open`。
+ * macOSは`/usr/bin/open -g`（アプリを前面へ出さない）、Windowsは`cmd /c start`（人の画面のあるsessionの時だけ）。
+ * Linuxのアプリは、まだ起こせない（`xdg-open`で開かせても会話が載らなかった。実物で確かめた後に足す）。
+ * 命令は場所を決めて呼ぶ。CodexがMCP serverへ渡す環境は細く、PATHに頼ると見つからない事がある。
  */
 export function codexThreadOpener(platform: NodeJS.Platform = process.platform, env: NodeJS.ProcessEnv = process.env,
   interactive: () => boolean = () => windowsInteractiveSession(env)): CodexThreadOpener | null {
@@ -84,13 +85,12 @@ export function codexThreadOpener(platform: NodeJS.Platform = process.platform, 
     if (result.error) return { ok: false, detail: (result.error as NodeJS.ErrnoException).code ?? result.error.message };
     return result.status === 0 ? { ok: true } : { ok: false, detail: `exit=${result.status} ${String(result.stderr ?? "").trim().slice(0, 200)}`.trim() };
   };
-  if (platform === "darwin") return url => run("open", ["-g", url])();
-  if (platform === "win32") return interactive() ? url => run("cmd.exe", ["/d", "/c", "start", "", url])() : null;
-  if (platform === "linux") {
-    if (!env.DISPLAY && !env.WAYLAND_DISPLAY) return null;
-    const handler = spawnSync("xdg-mime", ["query", "default", "x-scheme-handler/codex"], { encoding: "utf8", timeout: 5_000, stdio: ["ignore", "pipe", "ignore"], env });
-    if (handler.error || handler.status !== 0 || !String(handler.stdout ?? "").trim()) return null;
-    return url => run("xdg-open", [url])();
+  if (platform === "darwin") return url => run("/usr/bin/open", ["-g", url])();
+  if (platform === "win32") {
+    if (!interactive()) return null;
+    const key = (name: string) => Object.keys(env).find(candidate => candidate.toLowerCase() === name);
+    const comspec = env[key("comspec") ?? "ComSpec"] ?? path.win32.join(env[key("systemroot") ?? "SystemRoot"] ?? "C:\\Windows", "System32", "cmd.exe");
+    return url => run(comspec, ["/d", "/c", "start", "", url])();
   }
   return null;
 }
@@ -225,11 +225,10 @@ export async function wakeCodexParentIfAsleep(profile: ProductProfile, parent: C
   return result;
 }
 
-/** 見張りを別のprocessで起こすかどうか。口の無い環境（画面の無いLinuxなど）では、何も起こさない。 */
+/** 見張りを別のprocessで起こすかどうか。リンクを開く口の無いOS（Linuxなど）では、何も起こさない。 */
 export function codexWakeWatchEnabled(platform: NodeJS.Platform = process.platform, env: NodeJS.ProcessEnv = process.env): boolean {
   if (env.AITERM_STEER_CODEX_WAKE === "0") return false;
-  if (platform === "darwin" || platform === "win32") return true;
-  return platform === "linux" && Boolean(env.DISPLAY || env.WAYLAND_DISPLAY);
+  return platform === "darwin" || platform === "win32";
 }
 
 export const CODEX_WAKE_PAYLOAD_ENV = "AITERM_STEER_CODEX_WAKE_PAYLOAD";

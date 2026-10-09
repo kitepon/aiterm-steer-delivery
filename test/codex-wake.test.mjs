@@ -152,9 +152,10 @@ test('同じ会話へ続けて届いた時、開くのは1回だけ', async t =>
 test('見張りを起こすのは、リンクを開く口のある環境だけ', () => {
   assert.equal(codexWakeWatchEnabled('darwin', {}), true);
   assert.equal(codexWakeWatchEnabled('win32', {}), true);
-  assert.equal(codexWakeWatchEnabled('linux', {}), false, '画面の無いLinux（サーバー・コンテナ）');
-  assert.equal(codexWakeWatchEnabled('linux', { WAYLAND_DISPLAY: 'wayland-0' }), true);
-  assert.equal(codexWakeWatchEnabled('linux', { DISPLAY: ':0' }), true);
+  assert.equal(codexWakeWatchEnabled('linux', {}), false, 'Linux（サーバー・コンテナ）');
+  // Linuxのアプリは、まだ起こせない。画面があっても見張りを起こさない。
+  assert.equal(codexWakeWatchEnabled('linux', { WAYLAND_DISPLAY: 'wayland-0' }), false);
+  assert.equal(codexWakeWatchEnabled('linux', { DISPLAY: ':0' }), false);
   assert.equal(codexWakeWatchEnabled('darwin', { AITERM_STEER_CODEX_WAKE: '0' }), false, '利用者が止めた');
   assert.equal(codexWakeWatchEnabled('freebsd', { DISPLAY: ':0' }), false);
 });
@@ -172,7 +173,8 @@ test('Windowsでは、人の画面のあるsessionの時だけリンクを開く
   assert.equal(codexThreadOpener('win32', {}, () => false), null);
   assert.equal(typeof codexThreadOpener('win32', {}, () => true), 'function');
   assert.equal(typeof codexThreadOpener('darwin', {}), 'function');
-  assert.equal(codexThreadOpener('linux', {}), null, '画面の無いLinux');
+  assert.equal(codexThreadOpener('linux', {}), null);
+  assert.equal(codexThreadOpener('linux', { DISPLAY: ':0', WAYLAND_DISPLAY: 'wayland-0' }), null, 'Linuxのアプリは、まだ起こせない');
   assert.equal(codexThreadOpener('freebsd', { DISPLAY: ':0' }), null);
 });
 
@@ -186,7 +188,7 @@ test('見張りは別のprocessで起き、製品の識別情報と宛先を受�
     codex_client_name: 'demo_client', codex_hook_schema: 'demo.v1', backup_suffix: '.demo-backup', channels: { claude_expiry_notice: 'x' } };
   const parent = { thread_id: THREAD, codex_home: join(dir, 'home') };
   assert.equal(startCodexWakeWatch(profile, parent, DELIVERY, { platform: 'darwin', env: { ...process.env, AITERM_STEER_CODEX_WAKE: '0' }, entry: script }), false);
-  assert.equal(startCodexWakeWatch(profile, parent, DELIVERY, { platform: 'linux', env: { PATH: process.env.PATH }, entry: script }), false);
+  assert.equal(startCodexWakeWatch(profile, parent, DELIVERY, { platform: 'linux', env: { PATH: process.env.PATH, DISPLAY: ':0' }, entry: script }), false);
   assert.equal(startCodexWakeWatch(profile, parent, DELIVERY, { platform: 'darwin', env: { ...process.env, WAKE_TEST_OUT: out }, entry: join(dir, '無い.mjs') }), false);
   assert.equal(existsSync(out), false);
   assert.equal(startCodexWakeWatch(profile, parent, DELIVERY, { platform: 'darwin', env: { ...process.env, WAKE_TEST_OUT: out }, entry: script, delay_ms: 5 }), true);
