@@ -22,7 +22,7 @@ export {
 } from "./codex-receiver.js";
 export { runCodexResultHook } from "./codex-hooks.js";
 export {
-  readCodexTurnTail, codexThreadUrl, codexThreadOpener, codexWakeDirectory, readCodexWakeResult, wakeCodexParentIfAsleep,
+  readCodexTurnTail, codexThreadUrl, codexThreadOpener, windowsInteractiveSession, codexWakeDirectory, readCodexWakeResult, wakeCodexParentIfAsleep,
   codexWakeWatchEnabled, startCodexWakeWatch, runCodexWakeMain, serializeWakeProfile, CODEX_WAKE_PAYLOAD_ENV,
   type CodexTurnTail, type CodexThreadOpener, type CodexWakeOutcome, type CodexWakeResult, type CodexWakeOptions,
 } from "./codex-wake.js";

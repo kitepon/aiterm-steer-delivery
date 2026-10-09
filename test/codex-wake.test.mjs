@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, existsSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  readCodexTurnTail, codexThreadUrl, wakeCodexParentIfAsleep, readCodexWakeResult, codexWakeWatchEnabled, startCodexWakeWatch,
+  readCodexTurnTail, codexThreadUrl, codexThreadOpener, windowsInteractiveSession, wakeCodexParentIfAsleep, readCodexWakeResult, codexWakeWatchEnabled, startCodexWakeWatch,
   serializeWakeProfile, CODEX_WAKE_PAYLOAD_ENV, submitCodexParentAnswer,
 } from '../dist/index.js';
 
@@ -157,6 +157,23 @@ test('見張りを起こすのは、リンクを開く口のある環境だけ',
   assert.equal(codexWakeWatchEnabled('linux', { DISPLAY: ':0' }), true);
   assert.equal(codexWakeWatchEnabled('darwin', { AITERM_STEER_CODEX_WAKE: '0' }), false, '利用者が止めた');
   assert.equal(codexWakeWatchEnabled('freebsd', { DISPLAY: ':0' }), false);
+});
+
+test('Windowsでは、人の画面のあるsessionの時だけリンクを開く', () => {
+  // サービスやsshのsessionは番号0。そこから開いたリンクは、人の画面のアプリへ届かない。
+  assert.equal(windowsInteractiveSession({}, () => '0'), false);
+  assert.equal(windowsInteractiveSession({ SESSIONNAME: 'Console' }, () => '0'), false, '番号を読めた時は、番号で決める');
+  assert.equal(windowsInteractiveSession({}, () => '1\r\n'), true);
+  assert.equal(windowsInteractiveSession({}, () => '3'), true);
+  // 番号を読めない時（PowerShell 7が無い）は、画面のあるsessionにだけ入る環境変数で見る。
+  assert.equal(windowsInteractiveSession({ SESSIONNAME: 'Console' }, () => { throw new Error('no pwsh'); }), true);
+  assert.equal(windowsInteractiveSession({}, () => { throw new Error('no pwsh'); }), false);
+  assert.equal(windowsInteractiveSession({ SESSIONNAME: 'RDP-Tcp#0' }, () => 'x'), true);
+  assert.equal(codexThreadOpener('win32', {}, () => false), null);
+  assert.equal(typeof codexThreadOpener('win32', {}, () => true), 'function');
+  assert.equal(typeof codexThreadOpener('darwin', {}), 'function');
+  assert.equal(codexThreadOpener('linux', {}), null, '画面の無いLinux');
+  assert.equal(codexThreadOpener('freebsd', { DISPLAY: ':0' }), null);
 });
 
 test('見張りは別のprocessで起き、製品の識別情報と宛先を受け取る', async t => {

@@ -175,7 +175,7 @@ Codex starts a queued message only in a conversation that some running Codex pro
 
 The outcome is saved under `<config_root>/codex-parent-hooks/wake/<delivery id>.json` for three days and can be read with `readCodexWakeResult(PROFILE, deliveryId)`: `delivered`, `running`, `interrupted`, `not_app_thread`, `unknown_state`, `no_opener`, `open_failed`, `woken`, or `opened_still_queued`. The acceptance returned by `submitCodexParentAnswer` does not depend on the watcher.
 
-The watcher runs only where a link can be opened: macOS, Windows, and Linux with a display and a registered `codex` link handler. On servers and in containers nothing is started. Set `AITERM_STEER_CODEX_WAKE=0` to turn it off. To check and wake right now from your own process, call `wakeCodexParentIfAsleep(PROFILE, parent, deliveryId, { delay_ms: 0 })`.
+The watcher runs only where a link can be opened: macOS, Windows, and Linux with a display and a registered `codex` link handler. On Windows the link is opened only from an interactive session (a link opened from a service or an SSH session never reaches the app on the desktop; the outcome is `no_opener`). On servers and in containers nothing is started. Set `AITERM_STEER_CODEX_WAKE=0` to turn it off. To check and wake right now from your own process, call `wakeCodexParentIfAsleep(PROFILE, parent, deliveryId, { delay_ms: 0 })`.
 
 **Many messages to one conversation** (channels, e.g. Peertable's room messages to the parent):
 

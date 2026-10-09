@@ -11,6 +11,7 @@ import { z } from "zod";
 import { codexHookDirectory, type ProductProfile } from "./profile.js";
 import { withCodexReceiver, type CodexParent, type CodexReceiverRuntime } from "./codex-receiver.js";
 import { writeHookJson } from "./files.js";
+import { windowsPowerShellSync } from "./windows.js";
 
 /** 会話の記録（rollout）の末尾から読んだ、最後の番の状態。 */
 export type CodexTurnTail = "running" | "completed" | "interrupted" | "none" | "unknown";
@@ -59,17 +60,32 @@ export function codexThreadUrl(threadId: string): string {
 export interface CodexThreadOpener { (url: string): { ok: boolean; detail?: string } }
 
 /**
- * OSの口で、Codexのアプリにリンクを開かせる関数を返す。口の無い環境ではnull。
- * macOSは`open -g`（アプリを前面へ出さない）、Windowsは`cmd /c start`。Linuxは、画面のあるsessionで、リンクの受け手が登録されている時だけ`xdg-open`。
+ * Windowsで、このprocessが人の画面のあるsessionで動いているか。サービスやsshのsession（番号0）から開いたリンクは、人の画面のアプリへ届かない。
+ * sessionの番号を読めない時（PowerShell 7が無い）は、画面のあるsessionにだけ入る環境変数`SESSIONNAME`で見る。
  */
-export function codexThreadOpener(platform: NodeJS.Platform = process.platform, env: NodeJS.ProcessEnv = process.env): CodexThreadOpener | null {
+export function windowsInteractiveSession(env: NodeJS.ProcessEnv = process.env,
+  sessionId: () => string = () => windowsPowerShellSync("(Get-Process -Id $PID).SessionId", () => new Error("session id unavailable"), 10_000)): boolean {
+  try {
+    const id = Number(sessionId());
+    if (Number.isInteger(id)) return id > 0;
+  } catch { /* 下の環境変数で見る */ }
+  return Boolean(env.SESSIONNAME);
+}
+
+/**
+ * OSの口で、Codexのアプリにリンクを開かせる関数を返す。口の無い環境ではnull。
+ * macOSは`open -g`（アプリを前面へ出さない）、Windowsは`cmd /c start`（人の画面のあるsessionの時だけ）。
+ * Linuxは、画面のあるsessionで、リンクの受け手が登録されている時だけ`xdg-open`。
+ */
+export function codexThreadOpener(platform: NodeJS.Platform = process.platform, env: NodeJS.ProcessEnv = process.env,
+  interactive: () => boolean = () => windowsInteractiveSession(env)): CodexThreadOpener | null {
   const run = (command: string, args: string[]) => (): { ok: boolean; detail?: string } => {
     const result = spawnSync(command, args, { encoding: "utf8", timeout: 15_000, windowsHide: true, stdio: ["ignore", "ignore", "pipe"], env });
     if (result.error) return { ok: false, detail: (result.error as NodeJS.ErrnoException).code ?? result.error.message };
     return result.status === 0 ? { ok: true } : { ok: false, detail: `exit=${result.status} ${String(result.stderr ?? "").trim().slice(0, 200)}`.trim() };
   };
   if (platform === "darwin") return url => run("open", ["-g", url])();
-  if (platform === "win32") return url => run("cmd.exe", ["/d", "/c", "start", "", url])();
+  if (platform === "win32") return interactive() ? url => run("cmd.exe", ["/d", "/c", "start", "", url])() : null;
   if (platform === "linux") {
     if (!env.DISPLAY && !env.WAYLAND_DISPLAY) return null;
     const handler = spawnSync("xdg-mime", ["query", "default", "x-scheme-handler/codex"], { encoding: "utf8", timeout: 5_000, stdio: ["ignore", "pipe", "ignore"], env });
