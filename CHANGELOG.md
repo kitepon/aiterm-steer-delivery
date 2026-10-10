@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.3
+
+Windowsで、consoleを持たないprocessから呼ぶと端末の窓が一瞬出る所を直します。APIと返りは変わりません。
+
+- **起きていた事。** Windowsでは、consoleを持たないprocess（Nodeの`detached: true`で切り離したprocess、予定の仕事から起きたprocessなど）がconsoleの子を窓を隠さずに起こすと、端末の窓（Windows Terminal）が一瞬出る。Codexの実行ファイルを探す所（`resolveCodexExecutable`の`where codex`）に`windowsHide`が無かった。ここを通るのは、`CODEX_BIN`も`~/.local/bin/codex`も無く、製品のCodex hookが有効でない（hookの設定に実行ファイルの場所が無い）時。0.4.0から、寝ている会話を起こす見張りが切り離したprocessとして動くので、その組で窓が出た（Windowsの実物で、窓が1つ出る事と、直した後は出ない事を測った）。hookが有効な製品（実行ファイルの場所が設定にある）では通らず、見張りの本番の道は窓を出していなかった。
+- **子のprocessを起こす所の全部に`windowsHide`を付けた。** `where codex`のほか、macOSの導入先の確かめ（`codesign`・`--version`・`mdfind`・`PlistBuddy`）にも付ける（Windowsでは通らない所。抜けを無くすため）。
+- 抜けを見張る試験（`test/windows-hide.test.mjs`）を足した。子を起こす呼び出しで`windowsHide`の無い物があると落ちる。
+
 ## 0.4.2
 
 Claude Codeが起動し直して同じ会話を再開した後、channelの本文が届かなかったのを直します。今までのAPIの返りは変わりません。

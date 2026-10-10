@@ -71,7 +71,8 @@ export function resolveCodexExecutable(): string | null {
   }
   const fallback = path.join(home, ".local", "bin", "codex");
   if (isUsableAgentExecutableFile(fallback)) return resolveWindowsCodexShim(fallback);
-  const w = spawnSync(isWin ? "where" : "which", ["codex"], { encoding: "utf8", timeout: 5000 });
+  // windowsHide: consoleを持たないprocess（切り離した見張り、hookから切り離した処理）から起こすと、隠さない子は窓を一瞬出す。
+  const w = spawnSync(isWin ? "where" : "which", ["codex"], { encoding: "utf8", timeout: 5000, windowsHide: true });
   if (w.status === 0 && (w.stdout ?? "").trim()) {
     const found = w.stdout.trim().split(/\r?\n/).filter(Boolean);
     const ordered = isWin
@@ -101,7 +102,7 @@ export function codexSpawnEnv(env: NodeJS.ProcessEnv = process.env, node = proce
 }
 
 function command(executable: string, args: string[]): string {
-  const result = spawnSync(executable, args, { encoding: "utf8", timeout: 15_000, env: codexSpawnEnv() });
+  const result = spawnSync(executable, args, { encoding: "utf8", timeout: 15_000, env: codexSpawnEnv(), windowsHide: true });
   if (result.error || result.status !== 0) throw new SetupError("codex_steer_setup_failed", `${path.basename(executable)}を実行できません`);
   return result.stdout.trim();
 }
@@ -120,12 +121,12 @@ export function desktopBundledCodex(app: string): string | null {
 
 /** macOSの公式Codex Desktopが同梱するCLI。署名と版を確かめる。 */
 export function findDesktopBinary(): string {
-  const search = spawnSync("/usr/bin/mdfind", ["kMDItemCFBundleIdentifier == 'com.openai.codex'"], { encoding: "utf8", timeout: 10_000 });
+  const search = spawnSync("/usr/bin/mdfind", ["kMDItemCFBundleIdentifier == 'com.openai.codex'"], { encoding: "utf8", timeout: 10_000, windowsHide: true });
   const candidates = [...new Set(["/Applications/Codex.app", "/Applications/ChatGPT.app", ...(search.status === 0 ? search.stdout.trim().split("\n") : [])])];
   const found = candidates.flatMap(app => {
     const binary = app ? desktopBundledCodex(app) : null;
     if (!binary) return [];
-    const result = spawnSync("/usr/libexec/PlistBuddy", ["-c", "Print:CFBundleIdentifier", path.join(app, "Contents", "Info.plist")], { encoding: "utf8", timeout: 5_000 });
+    const result = spawnSync("/usr/libexec/PlistBuddy", ["-c", "Print:CFBundleIdentifier", path.join(app, "Contents", "Info.plist")], { encoding: "utf8", timeout: 5_000, windowsHide: true });
     return result.status === 0 && result.stdout.trim() === "com.openai.codex" ? [binary] : [];
   });
   if (found.length !== 1) throw new SetupError("codex_desktop_not_identified", "Codex Desktopのインストール先を一つに特定できません");
