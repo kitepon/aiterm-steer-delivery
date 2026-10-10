@@ -104,12 +104,16 @@ test('Claudeが起動し直して同じ会話を再開した後も、前のproce
   const current = openChannel(p, claudeParent(root, session));
   const other = openChannel(p, claudeParent(root, randomUUID()));
   const elsewhere = randomUUID();
-  await sendToChannel(p, channel.channel_id, randomUUID(), '古いchannelへ');
-  await sendToChannel(p, current.channel_id, randomUUID(), '新しいchannelへ');
+  // channelをまたいでも、届いた順に出す（channelの並びはIDの順で、届いた順とは限らない）。
+  await sendToChannel(p, current.channel_id, randomUUID(), '1通目（新しいchannelへ）');
+  await new Promise(r => setTimeout(r, 5));
+  await sendToChannel(p, channel.channel_id, randomUUID(), '2通目（古いchannelへ）');
+  await new Promise(r => setTimeout(r, 5));
+  await sendToChannel(p, current.channel_id, randomUUID(), '3通目（新しいchannelへ）');
   await sendToChannel(p, other.channel_id, elsewhere, '別の会話へ');
   out.length = 0;
   assert.equal(await runClaudeChannelWaiter(p, { session_id: session }, text => { out.push(text); }, { poll_ms: 10, owner: self() }), 2);
-  assert.deepEqual(out, ['古いchannelへ\n\n新しいchannelへ']);
+  assert.deepEqual(out, ['1通目（新しいchannelへ）\n\n2通目（古いchannelへ）\n\n3通目（新しいchannelへ）']);
   assert.equal(channelDeliveryState(p, other.channel_id, elsewhere), 'queued');
 });
 

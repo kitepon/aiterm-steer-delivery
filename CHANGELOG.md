@@ -9,6 +9,7 @@ Claude Codeが起動し直して同じ会話を再開した後、channelの本�
 - **会話の始まり（`SessionStart`）でも待機を張る。** channelを使う製品（`profile.channels`がある）の登録に、`SessionStart`のhook（`asyncRewake`）を足す。再開した会話が番を1つも回さないうちから、止まっていた間に届いた本文で起きる（実物で、再開した席が入力待ちになって3〜5秒後）。開いているchannelの無い会話（新しい会話、`/clear`の後）では、何もせず0で終わる。
   - 0.4.1までの登録には`SessionStart`が無い。そのままでも配送は成り立ち（`claudeParentHooksRegistered`は`SessionStart`を求めない）、再開した会話は最初の番の終わりから受け取る。製品のsetup（`mergeClaudeParentHooks`）をかけ直すと`SessionStart`だけが足される。`removeClaudeParentHooks`は一緒に外す。
   - channelを使わない製品（Aitermなど）の登録と動きは変わらない。
+- **同じ会話に開いているchannelが幾つかある時、届いた順に出す。** 今まではchannelごと（IDの並び順）にまとめて出していた。起動し直す前のchannelと後のchannelの両方に本文がある時も、届いた順に並ぶ。
 - `runClaudeChannelWaiter`の`options`に`owner`（試験が、hookを起こしたprocessを差し替える口）を足す。
 - 0.4.1の記述の言い足し: Linuxのアプリで寝ている会話が起きなかった端末は、アプリのログインの期限が切れていた（アプリの記録に`token_expired`）。リンクを開く口が効かないのか、ログインのせいかは、まだ分けられていない。Linuxで見張りを起こさない事は変わらない。
 

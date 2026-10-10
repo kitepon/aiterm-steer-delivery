@@ -296,7 +296,9 @@ export async function runClaudeChannelWaiter(profile: ProductProfile, input: unk
           : channels.some(channel => processIdentity(channel.claude!.parent_pid) === channel.claude!.parent_started_identity);
         if (!alive) return 0;
       }
-      const claimed = channels.flatMap(channel => claimPending(profile, channel.channel_id, "claude_hook"));
+      // 同じ会話に開いているchannelが幾つかある時（起動し直す前のchannelと後のchannel）も、届いた順に出す。
+      const claimed = channels.flatMap(channel => claimPending(profile, channel.channel_id, "claude_hook"))
+        .sort((left, right) => left.item.at < right.item.at ? -1 : left.item.at > right.item.at ? 1 : 0);
       if (claimed.length) {
         await emitClaimed(claimed, "claude_hook", texts => emit(texts.join("\n\n")));
         return 2;
