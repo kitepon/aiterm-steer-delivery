@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.2
+
+Claude Codeが起動し直して同じ会話を再開した後、channelの本文が届かなかったのを直します。今までのAPIの返りは変わりません。
+
+- **起きていた事。** channelは、開いた時のClaude Codeのprocess（pidと開始時刻）に結んである。待機（`runClaudeChannelWaiter`）は、その会話の開いているchannelのうち、結んだprocessが生きている物が1つも無いと、すぐ0で終わっていた。アプリが配下のClaude Codeを起こし直すと、同じ会話（同じ`session_id`）が新しいprocessで再開される。会話のchannelは全部、居ないprocessに結ばれたままなので、PostToolUseとStopの待機が毎回すぐ終わり、本文は受信箱に残った（製品が新しいchannelを開くまで届かない）。Windowsの実物（Claude Code 2.1.295）で起き、Linuxの実物（2.1.293）で再現した。
+- **待機は、そのhookを起こしたClaude Codeのprocessが生きている間、続ける。** 本文を出す先はそのprocessなので、生き死にもそのprocessで見る。同じ会話（`session_id`）のhookを今走らせているprocessへ、前のprocessが開いたchannelの本文も出す。別の会話のchannelからは取らない（今までどおり、会話ごとの索引で分ける）。hookを起こしたprocessが居なくなったら、本文を取らずに終わる。hookを起こしたprocessを確かめられない時だけ、今までどおりchannelを開いた時のprocessの生き死にで決める。
+- **会話の始まり（`SessionStart`）でも待機を張る。** channelを使う製品（`profile.channels`がある）の登録に、`SessionStart`のhook（`asyncRewake`）を足す。再開した会話が番を1つも回さないうちから、止まっていた間に届いた本文で起きる（実物で、再開した席が入力待ちになって3〜5秒後）。開いているchannelの無い会話（新しい会話、`/clear`の後）では、何もせず0で終わる。
+  - 0.4.1までの登録には`SessionStart`が無い。そのままでも配送は成り立ち（`claudeParentHooksRegistered`は`SessionStart`を求めない）、再開した会話は最初の番の終わりから受け取る。製品のsetup（`mergeClaudeParentHooks`）をかけ直すと`SessionStart`だけが足される。`removeClaudeParentHooks`は一緒に外す。
+  - channelを使わない製品（Aitermなど）の登録と動きは変わらない。
+- `runClaudeChannelWaiter`の`options`に`owner`（試験が、hookを起こしたprocessを差し替える口）を足す。
+- 0.4.1の記述の言い足し: Linuxのアプリで寝ている会話が起きなかった端末は、アプリのログインの期限が切れていた（アプリの記録に`token_expired`）。リンクを開く口が効かないのか、ログインのせいかは、まだ分けられていない。Linuxで見張りを起こさない事は変わらない。
+
 ## 0.4.1
 
 0.4.0の「寝ている会話を起こす見張り」の、3つの直しです。

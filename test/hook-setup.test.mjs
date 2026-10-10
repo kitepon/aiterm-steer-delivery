@@ -18,10 +18,15 @@ const aiterm = { ...profile('aiterm', ['agent_launch', 'pty_send']), hooks: { co
 const peer = profile('peertable', ['parent_join'], true);
 const fresh = t => { const dir = mkdtempSync(join(tmpdir(), 'steer-setup-')); t.after(() => rmSync(dir, { recursive: true, force: true })); return dir; };
 
-test('Claudeのmatcherは製品のMCP名とtoolから作り、channelの製品だけStopを付ける', () => {
+test('Claudeのmatcherは製品のMCP名とtoolから作り、channelの製品だけStopとSessionStartを付ける', () => {
   const a = claudeParentHookEntries(aiterm, { command: 'node', script: '/a/claude-parent-hook.js' });
   assert.equal(a.PreToolUse[0].matcher, '^mcp__aiterm__(agent_launch|pty_send)$');
   assert.equal(a.Stop, undefined);
+  assert.equal(a.SessionStart, undefined);
+  assert.deepEqual(Object.keys(a), ['PreToolUse', 'PostToolUse', 'SessionEnd'], 'channelを使わない製品の登録は変わらない');
+  // 会話の始まりでも待機を張る（起動し直して再開した会話が、番を回す前から受け取れる）。
+  assert.deepEqual(claudeParentHookEntries(peer, { command: 'node', script: '/p/peertable-claude-hook.js' }, 'linux').SessionStart,
+    [{ hooks: [{ type: 'command', command: "exec 'node' '/p/peertable-claude-hook.js'", asyncRewake: true, timeout: 86400 }] }]);
   const p = claudeParentHookEntries(peer, { command: 'node', script: '/p/peertable-claude-hook.js' });
   assert.equal(p.PostToolUse[0].matcher, '^mcp__peertable__(parent_join)$');
   assert.deepEqual(claudeParentHookEntries(peer, { command: 'node', script: '/p/peertable-claude-hook.js' }, 'linux').Stop[0].hooks[0],
@@ -114,6 +119,9 @@ test('登録の確認は、製品が登録する全てのeventを見る', () => 
   assert.equal(claudeParentHooksRegistered(peer, { hooks: entries }), true);
   const { Stop: _stop, ...withoutStop } = entries;
   assert.equal(claudeParentHooksRegistered(peer, { hooks: withoutStop }), false, 'channelの製品はStopも要る');
+  // 0.4.1までの登録にはSessionStartが無い。無くても登録済みと数える（配送は成り立つ。次のsetupで足される）。
+  const { SessionStart: _start, ...older } = entries;
+  assert.equal(claudeParentHooksRegistered(peer, { hooks: older }), true);
   for (const broken of [null, [], {}, { hooks: [] }, { hooks: { PreToolUse: 'x' } }]) assert.equal(claudeParentHooksRegistered(peer, broken), false);
   // 引用符と空白のあるpathも、書いた行から読み戻せる（POSIXとWindowsの両方の書き方）。
   for (const [platform, script] of [['linux', "/a b/it's/peertable-claude-hook.js"], ['win32', "C:\\a b\\it's\\peertable-claude-hook.js"]]) {
@@ -178,4 +186,19 @@ test('登録済みのClaude hookが同じ中身なら、後から足された他
   const after = JSON.parse(readFileSync(file, 'utf8')).hooks.PreToolUse;
   assert.equal(after.length, 2);
   assert.equal(after.filter(group => claudeParentHookScripts(aiterm, { hooks: { PreToolUse: [group], PostToolUse: [group], SessionEnd: [group] } })[0] === '/b/claude-parent-hook.js').length, 1);
+});
+
+test('0.4.1までの登録へsetupをかけ直すと、SessionStartだけが足され、解除では一緒に外れる', t => {
+  const dir = fresh(t), file = join(dir, 'settings.json');
+  const hook = { command: 'node', script: '/p/peertable-claude-hook.js' };
+  const { SessionStart: _start, ...older } = claudeParentHookEntries(peer, hook);
+  const user = { hooks: [{ type: 'command', command: 'user-session-start' }] };
+  writeFileSync(file, JSON.stringify({ hooks: { ...older, SessionStart: [user] } }));
+  assert.equal(mergeClaudeParentHooks(peer, file, hook), 'configured');
+  const after = JSON.parse(readFileSync(file, 'utf8')).hooks;
+  assert.deepEqual(after.SessionStart, [user, ...claudeParentHookEntries(peer, hook).SessionStart], '利用者のhookは残り、後ろへ足す');
+  for (const event of ['PreToolUse', 'PostToolUse', 'Stop', 'SessionEnd']) assert.deepEqual(after[event], older[event], event);
+  assert.equal(mergeClaudeParentHooks(peer, file, hook), 'unchanged');
+  assert.equal(removeClaudeParentHooks(peer, file), 'removed');
+  assert.deepEqual(JSON.parse(readFileSync(file, 'utf8')).hooks.SessionStart, [user]);
 });

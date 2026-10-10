@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -73,6 +73,69 @@ test('Claudeは会話ごとに待機を1つだけ張り、2通目以降も次の
   await sendToChannel(p, channel.channel_id, randomUUID(), '二通目');
   assert.equal(await runClaudeChannelWaiter(p, { session_id: session }, text => { out.push(text); }, { poll_ms: 10 }), 2);
   assert.deepEqual(out, ['roomの発言', '二通目']);
+});
+
+// channelを開いた時のprocessが居ない形の依頼元を作る（Claude Codeが起動し直した後の、前のprocessの記録）。
+function deadClaudeParent(root, session) {
+  const parent = claudeParent(root, session);
+  const file = join(parent.hook_root, parent.request_id, 'request.json');
+  writeFileSync(file, JSON.stringify({ ...JSON.parse(readFileSync(file, 'utf8')), parent_started_identity: '居ないprocessの開始時刻' }));
+  return parent;
+}
+const self = () => { const row = readRuntimeProcesses().find(entry => entry.pid === process.pid); return { pid: row.pid, started_identity: row.started_identity }; };
+
+test('Claudeが起動し直して同じ会話を再開した後も、前のprocessが開いたchannelの本文が今のprocessへ届く', async t => {
+  const root = fresh(t), p = profile(root), session = randomUUID();
+  const channel = openChannel(p, deadClaudeParent(root, session));
+  const before = randomUUID(), after = randomUUID();
+  await sendToChannel(p, channel.channel_id, before, '起動し直す前から残っていた答え');
+  const out = [];
+  // 今のhookを起こしたprocessは生きている（この試験のprocessを、そのprocessとして渡す）。
+  assert.equal(await runClaudeChannelWaiter(p, { session_id: session }, text => { out.push(text); }, { poll_ms: 10, owner: self() }), 2);
+  assert.deepEqual(out, ['起動し直す前から残っていた答え']);
+  assert.equal(channelDeliveryState(p, channel.channel_id, before), 'emitted');
+  // 次の待機は、後から届く本文も待って受け取る（すぐには終わらない）。
+  const waiter = runClaudeChannelWaiter(p, { session_id: session }, text => { out.push(text); }, { poll_ms: 10, owner: self() });
+  await new Promise(r => setTimeout(r, 80));
+  await sendToChannel(p, channel.channel_id, after, '起動し直した後に届いた答え');
+  assert.equal(await waiter, 2);
+  assert.deepEqual(out, ['起動し直す前から残っていた答え', '起動し直した後に届いた答え']);
+  // 前のprocessが開いたchannelと、今のprocessが開いたchannelの両方から引き取る。別の会話のchannelからは取らない。
+  const current = openChannel(p, claudeParent(root, session));
+  const other = openChannel(p, claudeParent(root, randomUUID()));
+  const elsewhere = randomUUID();
+  await sendToChannel(p, channel.channel_id, randomUUID(), '古いchannelへ');
+  await sendToChannel(p, current.channel_id, randomUUID(), '新しいchannelへ');
+  await sendToChannel(p, other.channel_id, elsewhere, '別の会話へ');
+  out.length = 0;
+  assert.equal(await runClaudeChannelWaiter(p, { session_id: session }, text => { out.push(text); }, { poll_ms: 10, owner: self() }), 2);
+  assert.deepEqual(out, ['古いchannelへ\n\n新しいchannelへ']);
+  assert.equal(channelDeliveryState(p, other.channel_id, elsewhere), 'queued');
+});
+
+test('hookを起こしたClaude processが居なくなっていたら、本文を取らずに待機を終える', async t => {
+  const root = fresh(t), p = profile(root), session = randomUUID();
+  // channelを開いたprocessは生きている（別のprocessが同じ会話を持っている形）。出す先のprocessが居ないので、取らない。
+  const channel = openChannel(p, claudeParent(root, session));
+  const id = randomUUID();
+  await sendToChannel(p, channel.channel_id, id, '取らない');
+  const gone = { pid: process.pid, started_identity: '居ないprocessの開始時刻' };
+  assert.equal(await runClaudeChannelWaiter(p, { session_id: session }, () => assert.fail('出す先が居ない'), { poll_ms: 10, owner: gone }), 0);
+  assert.equal(channelDeliveryState(p, channel.channel_id, id), 'queued');
+});
+
+test('hookを起こしたprocessを確かめられない時は、channelを開いた時のprocessの生き死にで決める', async t => {
+  const root = fresh(t), p = profile(root), session = randomUUID();
+  const dead = openChannel(p, deadClaudeParent(root, session));
+  const id = randomUUID();
+  await sendToChannel(p, dead.channel_id, id, '取らない');
+  assert.equal(await runClaudeChannelWaiter(p, { session_id: session }, () => assert.fail('依頼元が居ない'), { poll_ms: 10, owner: null }), 0);
+  assert.equal(channelDeliveryState(p, dead.channel_id, id), 'queued');
+  // 生きているprocessが開いたchannelが1つでもあれば、今までどおり待って受け取る。
+  openChannel(p, claudeParent(root, session));
+  const out = [];
+  assert.equal(await runClaudeChannelWaiter(p, { session_id: session }, text => { out.push(text); }, { poll_ms: 10, owner: null }), 2);
+  assert.deepEqual(out, ['取らない']);
 });
 
 test('Claudeの出力に失敗した本文はunknownとして残し、再送しない', async t => {

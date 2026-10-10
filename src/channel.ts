@@ -12,7 +12,7 @@ import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
 import { writeJson0600 } from "./files.js";
-import { readRuntimeProcesses } from "./process.js";
+import { hookOwnerProcess, readRuntimeProcesses } from "./process.js";
 import { channelRoot, type ProductProfile } from "./profile.js";
 import { SteerDeliveryError } from "./errors.js";
 import { submitCodexParentAnswer, type CodexParent, type CodexReceiverRuntime } from "./codex-receiver.js";
@@ -260,14 +260,26 @@ function releaseWaiter(index: string, identity: string): void {
   } catch { /* 既に無い */ }
 }
 
+/** このhookを起こしたClaude Codeのprocess。shellを通す形のhookでは、直接の親のshellの先をたどる。分からなければnull。 */
+function currentHookOwner(): { pid: number; started_identity: string } | null {
+  const owner = hookOwnerProcess(readRuntimeProcesses(), process.ppid);
+  return owner ? { pid: owner.pid, started_identity: owner.started_identity } : null;
+}
+
 /**
  * Claude Codeのhook（PostToolUse・Stop、asyncRewake）から呼ぶ。その会話のchannelに届いた本文を待ち、
  * 出力したら2（親を起こす）、待つものが無い・他の待機が生きている・会話が終わったなら0を返す。
+ *
+ * 待機は、このhookを起こしたClaude Codeのprocessが生きている間だけ続ける。本文はそのprocessへ出すので、居なくなった後に取ると失う。
+ * channelを開いた時のprocess（`channel.claude.parent_pid`）が居なくなっていても、同じ会話（session_id）のhookを走らせている今のprocessへ出す。
+ * Claude Codeが起動し直して同じ会話を再開した後も、前のprocessが開いたchannelの本文が届く。
+ * hookを起こしたprocessを確かめられない時だけ、channelを開いた時のprocessの生き死にで決める。
  */
 export async function runClaudeChannelWaiter(profile: ProductProfile, input: unknown, emit: (text: string) => Promise<void> | void,
-  options: { wait_ms?: number; poll_ms?: number } = {}): Promise<0 | 2> {
+  options: { wait_ms?: number; poll_ms?: number; owner?: { pid: number; started_identity: string } | null } = {}): Promise<0 | 2> {
   const event = z.object({ session_id: z.uuid() }).loose().parse(input);
   if (!openClaudeChannels(profile, event.session_id).length) return 0;
+  const owner = options.owner === undefined ? currentHookOwner() : options.owner;
   const index = sessionIndex(profile, event.session_id);
   const identity = acquireWaiter(index);
   if (!identity) return 0;
@@ -279,8 +291,10 @@ export async function runClaudeChannelWaiter(profile: ProductProfile, input: unk
       if (!channels.length) return 0;
       if (Date.now() - lastParentCheck >= 5_000) {
         lastParentCheck = Date.now();
-        // 依頼元のClaude processが終わっていたら、本文を別の会話へ流さずに待機を終える。
-        if (!channels.some(channel => processIdentity(channel.claude!.parent_pid) === channel.claude!.parent_started_identity)) return 0;
+        // 本文を出す先（このhookを起こしたClaude process）が終わっていたら、本文を取らずに待機を終える。
+        const alive = owner ? processIdentity(owner.pid) === owner.started_identity
+          : channels.some(channel => processIdentity(channel.claude!.parent_pid) === channel.claude!.parent_started_identity);
+        if (!alive) return 0;
       }
       const claimed = channels.flatMap(channel => claimPending(profile, channel.channel_id, "claude_hook"));
       if (claimed.length) {

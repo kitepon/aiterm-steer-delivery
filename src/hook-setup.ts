@@ -39,10 +39,18 @@ export function claudeParentHookEntries(profile: ProductProfile, hook: HookRunti
     PreToolUse: [{ matcher, hooks: [{ ...command, timeout: 15 }] }],
     PostToolUse: [{ matcher, hooks: [{ ...command, asyncRewake: true, timeout: 86400 }] }],
     // 長く続く受信（channel）では、turnが終わるたびに待機を張り直す。
-    ...(profile.channels ? { Stop: [{ hooks: [{ ...command, asyncRewake: true, timeout: 86400 }] }] } : {}),
+    // 会話の始まり（SessionStart）でも張る。Claude Codeが起動し直して同じ会話を再開した時、番が1つも回らないうちから、
+    // 前のprocessが開いたchannelの本文を受け取れる。開いているchannelの無い会話では、何もせず終わる。
+    ...(profile.channels ? {
+      Stop: [{ hooks: [{ ...command, asyncRewake: true, timeout: 86400 }] }],
+      SessionStart: [{ hooks: [{ ...command, asyncRewake: true, timeout: 86400 }] }],
+    } : {}),
     SessionEnd: [{ hooks: [{ ...command, timeout: 15 }] }],
   };
 }
+
+/** 無くても配送が成り立つevent。0.4.1までの登録には無いので、登録の確認では求めない（次のsetupで足される）。 */
+const OPTIONAL_CLAUDE_EVENTS = new Set(["SessionStart"]);
 
 export function mergeClaudeParentHooks(profile: ProductProfile, file: string, hook: HookRuntime): "configured" | "unchanged" {
   const target = existsSync(file) ? realpathSync(file) : file;
@@ -105,9 +113,13 @@ function ownedClaudeParentHooks(profile: ProductProfile, document: unknown, even
   return hooks.flatMap(group => record(group) && Array.isArray(group.hooks) ? group.hooks : []).filter(entry => isClaudeParentHook(profile, entry));
 }
 
-/** 製品が登録する全てのeventに、当製品のhookがあるか（設定を読むだけ。形は旧・新のどちらでもよい）。 */
+/**
+ * 配送に要る全てのeventに、当製品のhookがあるか（設定を読むだけ。形は旧・新のどちらでもよい）。
+ * SessionStartは求めない。無い登録（0.4.1まで）でも配送は成り立ち、起動し直した会話は最初の番の終わりから受け取る。
+ */
 export function claudeParentHooksRegistered(profile: ProductProfile, document: unknown): boolean {
   return Object.keys(claudeParentHookEntries(profile, { command: "", script: profile.hooks.claude }))
+    .filter(event => !OPTIONAL_CLAUDE_EVENTS.has(event))
     .every(event => ownedClaudeParentHooks(profile, document, event).length > 0);
 }
 
@@ -130,7 +142,7 @@ export function removeClaudeParentHooks(profile: ProductProfile, file: string): 
   }
   if (current.hooks === undefined) return "unchanged";
   const hooks = { ...current.hooks as Record<string, unknown> | undefined };
-  for (const event of ["PreToolUse", "PostToolUse", "Stop", "SessionEnd"]) {
+  for (const event of ["PreToolUse", "PostToolUse", "Stop", "SessionStart", "SessionEnd"]) {
     if (hooks[event] === undefined) continue;
     if (!Array.isArray(hooks[event])) throw new SetupError("config_invalid", "Claudeのhook設定を読めません");
     hooks[event] = (hooks[event] as unknown[]).map(group => {

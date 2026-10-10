@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { claudeParentHookCommand, hookOwnerProcess, readRuntimeProcesses } from '../dist/index.js';
+import { claudeParentHookCommand, hookOwnerProcess, readRuntimeProcesses, openChannel, sendToChannel, channelDeliveryState } from '../dist/index.js';
 
 const isWin = process.platform === 'win32';
 const fresh = t => { const dir = mkdtempSync(join(tmpdir(), 'steer-shell-')); t.after(() => rmSync(dir, { recursive: true, force: true })); return dir; };
@@ -102,6 +102,32 @@ test('Grokからの起動では、何も記録せず、何も出さずに0で終
     JSON.stringify({ hook_event_name: 'Stop', session_id: randomUUID() }));
   assert.equal(claude.status, 2);
   assert.match(claude.stderr, /CLAUDE_PARENT_HOOK_EVENT_INVALID/u);
+});
+
+// 2026-10-10 fox（Claude Code 2.1.295）: アプリ配下のClaudeが起動し直り、同じ会話が新しいprocessで再開された。
+// channelは前のprocessに結ばれたままで、待機がすぐ終わり、答えが受信箱に残った。
+test('SessionStartとStopのhookは、前のprocessが開いたchannelの本文を、今hookを起こしたprocessへ出す', async t => {
+  const dir = fresh(t);
+  const script = entry(dir, 'channel-claude-hook.mjs', { channels: true });
+  const command = claudeParentHookCommand({ command: process.execPath, script }).command;
+  const root = join(dir, 'state');
+  const p = { id: 'demo', state_root: () => root, config_root: () => root };
+  const session = randomUUID(), request = 'toolu_restart';
+  // 前のprocess（もう居ない）が出した依頼の記録と、そこへ結んだchannel。
+  mkdirSync(join(root, 'claude-parent-hooks', request), { recursive: true });
+  writeFileSync(join(root, 'claude-parent-hooks', request, 'request.json'), JSON.stringify({ request_id: request, session_id: session, agent_id: null,
+    parent_pid: process.pid, parent_started_identity: '起動し直す前のprocessの開始時刻' }));
+  const channel = openChannel(p, { kind: 'claude', request_id: request, session_id: session, hook_root: join(root, 'claude-parent-hooks') });
+  for (const [event, text] of [['SessionStart', '止まっていた間に届いた答え'], ['Stop', '再開した後に届いた答え']]) {
+    const id = randomUUID();
+    await sendToChannel(p, channel.channel_id, id, text);
+    const run = runThroughShell(command, JSON.stringify({ hook_event_name: event, session_id: session, ...(event === 'SessionStart' ? { source: 'resume' } : {}) }));
+    assert.deepEqual([run.status, run.stderr], [2, text], event);
+    assert.equal(channelDeliveryState(p, channel.channel_id, id), 'emitted');
+  }
+  // 開いているchannelの無い会話（新しい会話）の始まりでは、何もせず0で終わる。
+  const fresh2 = runThroughShell(command, JSON.stringify({ hook_event_name: 'SessionStart', session_id: randomUUID(), source: 'startup' }));
+  assert.deepEqual([fresh2.status, fresh2.stdout, fresh2.stderr], [0, '', '']);
 });
 
 // 2026-10-05 fox（Claude Code 2.1.289、0.1.13）: 親は本文を受け取ったのに、送り主には CLAUDE_PARENT_HOOK_CLOSED が返っていた。

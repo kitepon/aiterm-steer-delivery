@@ -52,6 +52,12 @@ export async function runClaudeHookMain(profile: ProductProfile, root: string = 
         if (!profile.channels) throw new Error("CLAUDE_PARENT_HOOK_EVENT_INVALID: 未対応のhookです");
         process.exitCode = await runClaudeChannelWaiter(profile, event, write);
         break;
+      case "SessionStart":
+        // 会話が起動し直して再開された時は、番が1つも回らないうちから、前のprocessが開いたchannelの待機を張る。
+        // 開いているchannelが無い会話（新しい会話、/clearの後）では、何もせず0で終わる。
+        if (!profile.channels) throw new Error("CLAUDE_PARENT_HOOK_EVENT_INVALID: 未対応のhookです");
+        process.exitCode = await runClaudeChannelWaiter(profile, event, write);
+        break;
       case "SessionEnd":
         closeClaudeParentSession(event, root);
         if (profile.channels) closeClaudeSessionChannels(profile, event);
