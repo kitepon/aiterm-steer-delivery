@@ -213,6 +213,8 @@ channel の配送状態:
 | `unknown` | 受け口が取った後に止まりました。親に届いたかどうか分かりません。 |
 | `withdrawn` | 受け口が取る前に `withdrawFromChannel` で取り下げました。 |
 
+channel は、同じ配送IDを1回だけ受け付けます。同じ channel へ同じ配送IDでもう一度送ると、前の本文がどの状態でも（`queued` の間も）`CHANNEL_DELIVERY_DUPLICATE` で断ります。本文は足されません。前の本文がどこにあるかは `channelDeliveryState` で読めます。
+
 Codex の channel では、`sendToChannel` が公式キューの `queued_submission_id` とともに `submitted` を返し、`channelDeliveryState` は `null` を返します。
 
 既知の制限: `agent_id` を持つ Claude Code の会話（`--agent` で起動したもの、ネイティブのサブエージェント）は、親として対応していません。

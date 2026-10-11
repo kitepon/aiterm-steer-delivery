@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, readdirSync, writeFileSync, copyFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
   openChannel, sendToChannel, channelDeliveryState, receiveFromChannel, runClaudeChannelWaiter, closeClaudeSessionChannels,
-  handleCursorChannelHook, channelMarker, channelIdFromResult, closeChannel, readRuntimeProcesses,
+  handleCursorChannelHook, channelMarker, channelIdFromResult, closeChannel, readRuntimeProcesses, withdrawFromChannel, channelRoot,
 } from '../dist/index.js';
 
 function profile(root) {
@@ -185,7 +185,6 @@ test('Cursorはtool結果の印で会話へ結び、次のtool返りで差し込
 });
 
 test('未取得の本文だけを取り下げられる', async t => {
-  const { withdrawFromChannel } = await import('../dist/index.js');
   const p = profile(fresh(t));
   const channel = openChannel(p, null);
   const a = randomUUID(), b = randomUUID();
@@ -205,4 +204,53 @@ test('同じミリ秒に送った本文も送った順に受け取る', async t 
   for (const text of texts) await sendToChannel(p, channel.channel_id, randomUUID(), text);
   const result = await receiveFromChannel(p, channel.channel_id, { poll_ms: 10 });
   assert.deepEqual(result.deliveries.map(d => d.text), texts);
+});
+
+// 受信箱の本文を、別の名前でもう1つ置く。0.4.3までの送信が、同じ配送IDを断らずに二重に入れた時の形。
+function duplicateInInbox(p, channelId, deliveryId) {
+  const inbox = join(channelRoot(p), channelId, 'inbox');
+  const name = readdirSync(inbox).find(entry => entry.endsWith(`-${deliveryId}.json`));
+  copyFileSync(join(inbox, name), join(inbox, name.replace(/^\d+/, digits => String(Number(digits) + 1).padStart(digits.length, '0'))));
+  return inbox;
+}
+
+test('まだ誰も取っていない本文と同じ配送IDは断り、親へは一度だけ出る', async t => {
+  const p = profile(fresh(t));
+  const channel = openChannel(p, null);
+  const id = randomUUID();
+  await sendToChannel(p, channel.channel_id, id, '同じ返信');
+  await assert.rejects(sendToChannel(p, channel.channel_id, id, '同じ返信'), /CHANNEL_DELIVERY_DUPLICATE/);
+  assert.equal(readdirSync(join(channelRoot(p), channel.channel_id, 'inbox')).length, 1);
+  assert.equal(channelDeliveryState(p, channel.channel_id, id), 'queued');
+  assert.deepEqual((await receiveFromChannel(p, channel.channel_id, { poll_ms: 10 })).deliveries.map(d => d.text), ['同じ返信']);
+  assert.equal((await receiveFromChannel(p, channel.channel_id, { wait_ms: 60, poll_ms: 10 })).outcome, 'timeout');
+  await assert.rejects(sendToChannel(p, channel.channel_id, id, '同じ返信'), /CHANNEL_DELIVERY_DUPLICATE/);
+});
+
+test('同じ配送IDが受信箱に二重に入っていても、親へは一度だけ出して、残りは捨てる', async t => {
+  const p = profile(fresh(t));
+  const channel = openChannel(p, null);
+  const id = randomUUID(), next = randomUUID();
+  await sendToChannel(p, channel.channel_id, id, '同じ返信');
+  const inbox = duplicateInInbox(p, channel.channel_id, id);
+  assert.equal(readdirSync(inbox).length, 2);
+  assert.deepEqual((await receiveFromChannel(p, channel.channel_id, { poll_ms: 10 })).deliveries.map(d => d.text), ['同じ返信']);
+  await sendToChannel(p, channel.channel_id, next, '次の返信');
+  assert.deepEqual((await receiveFromChannel(p, channel.channel_id, { poll_ms: 10 })).deliveries.map(d => d.text), ['次の返信']);
+  assert.deepEqual(readdirSync(inbox), []);
+  assert.deepEqual(readdirSync(join(channelRoot(p), channel.channel_id, 'claims')), []);
+  assert.equal(channelDeliveryState(p, channel.channel_id, id), 'emitted');
+});
+
+test('親へ出た配送IDは、受信箱に同じ物が残っていても、取り下げたと返さない', async t => {
+  const p = profile(fresh(t));
+  const channel = openChannel(p, null);
+  const id = randomUUID();
+  await sendToChannel(p, channel.channel_id, id, '同じ返信');
+  const inbox = duplicateInInbox(p, channel.channel_id, id);
+  await receiveFromChannel(p, channel.channel_id, { poll_ms: 10 });
+  assert.equal(readdirSync(inbox).length, 1);
+  assert.equal(withdrawFromChannel(p, channel.channel_id, id), false);
+  assert.equal(channelDeliveryState(p, channel.channel_id, id), 'emitted');
+  assert.deepEqual(readdirSync(join(channelRoot(p), channel.channel_id, 'claims')), []);
 });

@@ -227,6 +227,8 @@ Channel delivery states:
 | `unknown` | The receiver stopped after claiming it; it may or may not have reached the parent. |
 | `withdrawn` | Taken back with `withdrawFromChannel` before any receiver claimed it. |
 
+A channel accepts a delivery id once. Sending the same id to the same channel again is refused with `CHANNEL_DELIVERY_DUPLICATE`, whichever state the first one is in (including `queued`); nothing is added, and `channelDeliveryState` tells you where the first one is.
+
 On a Codex channel, `sendToChannel` returns `submitted` with the official queue's `queued_submission_id`, and `channelDeliveryState` returns `null`.
 
 Known limit: Claude Code sessions that carry an `agent_id` (started with `--agent`, or native subagents) are not supported as parents.

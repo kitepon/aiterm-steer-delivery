@@ -113,6 +113,10 @@ export async function sendToChannel(profile: ProductProfile, channelId: string, 
     return { state: "submitted", queued_submission_id: result.queued_submission_id };
   }
   const dir = channelDir(profile, channelId);
+  // 本文は 受信箱 → claims → emitted の順に移る。同じ向きに見るので、移っている途中の本文も見落とさない。
+  if (fs.readdirSync(path.join(dir, "inbox")).some(entry => entry.endsWith(`-${deliveryId}.json`))) {
+    throw new ChannelError("CHANNEL_DELIVERY_DUPLICATE", "同じ配送IDの本文がすでに受信箱にあります");
+  }
   for (const sub of ["claims", "emitted"]) {
     if (fs.existsSync(path.join(dir, sub, `${deliveryId}.json`))) throw new ChannelError("CHANNEL_DELIVERY_DUPLICATE", "同じ配送IDの本文はすでに受け取られています");
   }
@@ -163,11 +167,20 @@ export function withdrawFromChannel(profile: ProductProfile, channelId: string, 
   // 受け口のclaimと同じhard linkで取り合う。どちらか一方だけが成功する。
   try { fs.linkSync(path.join(inbox, name), claim); fs.unlinkSync(path.join(inbox, name)); }
   catch (error) { if (["ENOENT", "EEXIST"].includes((error as NodeJS.ErrnoException).code ?? "")) return false; throw error; }
+  if (alreadyEmitted(dir, deliveryId)) { fs.rmSync(claim, { force: true }); return false; }
   writeJson0600(claim, { delivery_id: deliveryId, state: "withdrawn", at: new Date().toISOString() });
   return true;
 }
 
 type Claimed = { channel_id: string; item: Item; claim: string; dir: string };
+
+/**
+ * 受信箱から取った本文と同じ配送IDが、すでに親へ出ているか。出し終えた記録（emitted）はclaimを消す前に書くので、
+ * claimを取れた後に見れば確実に分かる。同じ配送IDが受信箱に二重に入っていた時（0.4.3までの送信）に、二度目を親へ出さないため。
+ */
+function alreadyEmitted(dir: string, deliveryId: string): boolean {
+  return fs.existsSync(path.join(dir, "emitted", `${deliveryId}.json`));
+}
 
 /** 受信箱の本文を到着順にclaimする。hard linkの作成で、同じ本文を二つの受け口が取らないようにする。 */
 function claimPending(profile: ProductProfile, channelId: string, by: string, limit = Infinity): Claimed[] {
@@ -185,6 +198,7 @@ function claimPending(profile: ProductProfile, channelId: string, by: string, li
     const claim = path.join(dir, "claims", `${item.delivery_id}.json`);
     try { fs.linkSync(source, claim); fs.unlinkSync(source); }
     catch (error) { if (["ENOENT", "EEXIST"].includes((error as NodeJS.ErrnoException).code ?? "")) continue; throw error; }
+    if (alreadyEmitted(dir, item.delivery_id)) { fs.rmSync(claim, { force: true }); continue; }
     identity ??= processIdentity(process.pid) ?? "unknown";
     writeJson0600(claim, { ...item, state: "sending", by, pid: process.pid, started_identity: identity });
     claimed.push({ channel_id: channelId, item, claim, dir });
