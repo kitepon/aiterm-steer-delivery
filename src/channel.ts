@@ -15,6 +15,7 @@ import { writeJson0600 } from "./files.js";
 import { hookOwnerProcess, processExists, processIsRunning, readProcessIdentities, readProcessLineage } from "./process.js";
 import { channelRoot, type ProductProfile } from "./profile.js";
 import { SteerDeliveryError } from "./errors.js";
+import { liveNodeExecutable } from "./setup-node.js";
 import { submitCodexParentAnswer, type CodexParent, type CodexReceiverRuntime } from "./codex-receiver.js";
 import type { ClaudeParent } from "./claude-receiver.js";
 import { windowsStartProcessArgumentList } from "./windows.js";
@@ -436,7 +437,7 @@ export async function handleCursorChannelHook(profile: ProductProfile, event: Re
 // ---- 背景受信（Cursorのidle時、Grok等） ----
 
 /** 親の背景process APIへそのまま渡す起動情報。scriptは製品のchannel受信入口の絶対path。 */
-export function channelReceiveProcess(script: string, channelId: string, executable = process.execPath): WaitProcess {
+export function channelReceiveProcess(script: string, channelId: string, executable = liveNodeExecutable()): WaitProcess {
   const args = [script, "--channel", uuid.parse(channelId)];
   return { executable, args, windows_start_process_argument_list: process.platform === "win32" ? windowsStartProcessArgumentList(args) : null };
 }

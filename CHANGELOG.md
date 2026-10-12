@@ -1,5 +1,20 @@
 # Changelog
 
+## 未公開（0.4.6の予定）
+
+動いている最中にNodeが更新されて前の版の場所が消えると、Nodeを起こせなくなっていたのを直します。関数の名前・引数・返りの形、置き場の作り、符号は変わりません。
+
+- **起きていた事。** 長く動くprocess（製品のMCP process）が、止まったCodexの会話を起こす見張り（`startCodexWakeWatch`）を起こす時、
+  Aitermの命令を起こす時（`findAitermDeliveryProvider`の`node`）、待ち受けの起動先を返す時（`channelReceiveProcess`・`cursorReceiveProcess`）に、
+  自分が起きた時のNodeの場所（`process.execPath`）を使っていた。Homebrewは版ごとの場所へ入れて、更新で前の版を消す。
+  2026-10-12にMacでNodeが26.10.0_1から26.11.1へ上がり、前から動いていたprocessが、無いNodeを指したまま黙って失敗していた。
+- **足した関数。** `liveNodeExecutable(executable?, exists?)`。Homebrewの版つきの場所なら更新でも残る`opt`の場所、
+  それ以外で実体があればそのまま、実体が消えていればPATHから探させる`node`を返す。上の3か所と、Codexへ渡すPATH（`codexSpawnEnv`）が使う。
+- **変わる値。** Homebrewの端末で、`channelReceiveProcess`・`cursorReceiveProcess`の`executable`と`findAitermDeliveryProvider`の`node`が、
+  `…/Cellar/node/<版>/bin/node`から`…/opt/node/bin/node`になる。ほかの端末では同じ値。
+- **取り込む側。** 製品が自分でNodeの場所を控える時は、`setupNodeExecutable`（設定へ書く時）か`liveNodeExecutable`（動いている最中に使う時）を通す。
+  `process.execPath`や、linkをたどった先の場所を控えない。
+
 ## 0.4.5
 
 待機や受信hookが、端末の全processの一覧を取り続けて端末を重くしていたのを直します。関数の名前・引数・返り、置き場の作り、符号は変わりません。

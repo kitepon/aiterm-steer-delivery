@@ -11,6 +11,7 @@ import { z } from "zod";
 import { codexHookDirectory, type ProductProfile } from "./profile.js";
 import { withCodexReceiver, type CodexParent, type CodexReceiverRuntime } from "./codex-receiver.js";
 import { writeHookJson } from "./files.js";
+import { liveNodeExecutable } from "./setup-node.js";
 import { windowsPowerShellSync } from "./windows.js";
 
 /** 会話の記録（rollout）の末尾から読んだ、最後の番の状態。 */
@@ -252,7 +253,7 @@ export function startCodexWakeWatch(profile: ProductProfile, parent: CodexParent
     if (!fs.existsSync(entry)) return false;
     const payload = JSON.stringify({ profile: serializeWakeProfile(profile), parent, delivery_id: deliveryId,
       ...(options.delay_ms === undefined ? {} : { delay_ms: options.delay_ms }) });
-    const child = spawn(process.execPath, [entry], { detached: true, stdio: "ignore", windowsHide: true, env: { ...env, [CODEX_WAKE_PAYLOAD_ENV]: payload } });
+    const child = spawn(liveNodeExecutable(), [entry], { detached: true, stdio: "ignore", windowsHide: true, env: { ...env, [CODEX_WAKE_PAYLOAD_ENV]: payload } });
     child.on("error", () => { /* 起こせなかった。文はキューにある */ });
     child.unref();
     return true;

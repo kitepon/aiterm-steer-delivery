@@ -7,6 +7,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { z } from "zod";
 import { CodexDeliveryError } from "./errors.js";
+import { liveNodeExecutable } from "./setup-node.js";
 import type { CodexParent, CodexParentThread } from "./codex-receiver.js";
 import type { CodexWakeResult } from "./codex-wake.js";
 
@@ -50,7 +51,7 @@ export function findAitermDeliveryProvider(options: AitermProviderOptions = {}):
   const explicit = options.cli ?? env.AITERM_PARENT_DELIVERY_CLI;
   if (explicit) {
     // 明示した場所が使えない時に、別の場所へ黙って移らない。
-    return path.isAbsolute(explicit) && isFile(explicit) ? { node: options.node ?? process.execPath, cli: explicit, version: null, source: "explicit" } : null;
+    return path.isAbsolute(explicit) && isFile(explicit) ? { node: options.node ?? liveNodeExecutable(), cli: explicit, version: null, source: "explicit" } : null;
   }
   const home = options.home ?? env.HOME ?? os.homedir();
   try {
@@ -62,12 +63,12 @@ export function findAitermDeliveryProvider(options: AitermProviderOptions = {}):
     if (process.platform === "win32") {
       // npmのshim（.cmd）と同じ場所のnode_modulesに本体がある。
       const cli = path.join(directory, "node_modules", "aiterm-mcp", "dist", "parent-delivery-cli.js");
-      if (isFile(path.join(directory, "aiterm-parent-delivery.cmd")) && isFile(cli)) return { node: options.node ?? process.execPath, cli, version: null, source: "path" };
+      if (isFile(path.join(directory, "aiterm-parent-delivery.cmd")) && isFile(cli)) return { node: options.node ?? liveNodeExecutable(), cli, version: null, source: "path" };
       continue;
     }
     const shim = path.join(directory, "aiterm-parent-delivery");
     if (!isFile(shim)) continue;
-    try { return { node: options.node ?? process.execPath, cli: fs.realpathSync(shim), version: null, source: "path" }; } catch { /* 壊れたlinkは飛ばす */ }
+    try { return { node: options.node ?? liveNodeExecutable(), cli: fs.realpathSync(shim), version: null, source: "path" }; } catch { /* 壊れたlinkは飛ばす */ }
   }
   return null;
 }

@@ -6,6 +6,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { CodexDeliveryError, SetupError } from "./errors.js";
+import { liveNodeExecutable } from "./setup-node.js";
 import { writeHookJson } from "./files.js";
 import { codexHookDirectory, type ProductProfile } from "./profile.js";
 import { windowsPowerShellSync } from "./windows.js";
@@ -90,7 +91,7 @@ export function resolveCodexExecutable(): string | null {
  * 無いと起きない（exit 127。素のsshの環境、製品の常駐process、アプリ配下のprocessはPATHが細い事がある）。
  * このprocessを動かしているnodeの場所を、PATHに無い時だけ頭へ足した写しを返す。既にあれば、並びも中身も変えない。
  */
-export function codexSpawnEnv(env: NodeJS.ProcessEnv = process.env, node = process.execPath, platform: NodeJS.Platform = process.platform): NodeJS.ProcessEnv {
+export function codexSpawnEnv(env: NodeJS.ProcessEnv = process.env, node = liveNodeExecutable(), platform: NodeJS.Platform = process.platform): NodeJS.ProcessEnv {
   const windows = platform === "win32";
   // Windowsの環境変数名は大文字小文字を区別しない（`Path`で入っている事が多い）。
   const key = Object.keys(env).find(name => windows ? name.toLowerCase() === "path" : name === "PATH") ?? "PATH";

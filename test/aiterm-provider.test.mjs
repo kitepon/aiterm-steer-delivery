@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, delimiter } from 'node:path';
 import {
   findAitermDeliveryProvider, verifyCodexParentViaAiterm, submitCodexParentAnswerViaAiterm, codexDeliveryStateViaAiterm, codexDeliveryDetailViaAiterm,
-  CodexDeliveryError,
+  CodexDeliveryError, liveNodeExecutable,
 } from '../dist/index.js';
 
 // 2026-10-07: ほかの製品（決裁箱）が、Codexの親への回答を自分のhookでなくAitermの親配送へ頼む入口。
@@ -57,7 +57,7 @@ test('命令の場所は、明示・aiterm-setupの記録・PATHの順に探し�
   symlinkSync(onPath, join(bin, 'aiterm-parent-delivery'));
   const env = { HOME: home, PATH: [join(dir, 'empty'), bin].join(delimiter) };
   // 記録が無ければPATH。npmのlinkの先の本体を指す。
-  assert.deepEqual(findAitermDeliveryProvider({ env }), { node: process.execPath, cli: onPath, version: null, source: 'path' });
+  assert.deepEqual(findAitermDeliveryProvider({ env }), { node: liveNodeExecutable(), cli: onPath, version: null, source: 'path' });
   mkdirSync(join(home, '.config', 'aiterm-mcp'), { recursive: true });
   const record = join(home, '.config', 'aiterm-mcp', 'delivery-provider.json');
   writeFileSync(record, JSON.stringify({ schema: 'aiterm.delivery-provider.v1', version: '0.56.0', node: process.execPath, cli: recorded }));
@@ -69,7 +69,7 @@ test('命令の場所は、明示・aiterm-setupの記録・PATHの順に探し�
   writeFileSync(record, JSON.stringify({ schema: 'other', node: process.execPath, cli: recorded }));
   assert.equal(findAitermDeliveryProvider({ env }).source, 'path');
   const explicit = fakeCli(dir, 'ok', 'explicit.js');
-  assert.deepEqual(findAitermDeliveryProvider({ env, cli: explicit }), { node: process.execPath, cli: explicit, version: null, source: 'explicit' });
+  assert.deepEqual(findAitermDeliveryProvider({ env, cli: explicit }), { node: liveNodeExecutable(), cli: explicit, version: null, source: 'explicit' });
   assert.equal(findAitermDeliveryProvider({ env: { ...env, AITERM_PARENT_DELIVERY_CLI: explicit } }).source, 'explicit');
   assert.equal(findAitermDeliveryProvider({ env, cli: join(dir, 'missing.js') }), null, '明示した場所が無い時、PATHへ移らない');
   assert.equal(findAitermDeliveryProvider({ env, cli: 'relative.js' }), null);

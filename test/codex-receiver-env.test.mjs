@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { dirname, delimiter } from 'node:path';
-import { withCodexReceiver, codexSpawnEnv } from '../dist/index.js';
+import { withCodexReceiver, codexSpawnEnv, liveNodeExecutable } from '../dist/index.js';
 
 // 偽のApp Server。受け取った要求へ、自分の環境の値を返す。
 const server = `import { createInterface } from 'node:readline';
@@ -52,5 +52,5 @@ test('withCodexReceiverは、PATHにnodeの場所が無い環境を渡されて�
   const key = Object.keys(process.env).find(name => name.toLowerCase() === 'path') ?? 'PATH';
   const seen = await withCodexReceiver(profile, parent, request => request('path', {}),
     { executable: process.execPath, args: [script], timeout_ms: 10000, env: { ...process.env, [key]: thin } });
-  assert.equal(seen.path, `${dirname(process.execPath)}${delimiter}${thin}`);
+  assert.equal(seen.path, `${dirname(liveNodeExecutable())}${delimiter}${thin}`);
 });

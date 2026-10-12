@@ -5,6 +5,7 @@ import * as net from "node:net";
 import * as path from "node:path";
 import { receiveCursorAnswer, type CursorReceiveReader } from "./cursor-receiver.js";
 import { windowsStartProcessArgumentList } from "./windows.js";
+import { liveNodeExecutable } from "./setup-node.js";
 
 export interface WaitProcess {
   executable: string;
@@ -13,7 +14,7 @@ export interface WaitProcess {
 }
 
 /** 親の背景process APIへそのまま渡す起動情報。scriptは製品のCursor受信入口の絶対path。 */
-export function cursorReceiveProcess(script: string, deliveryId: string, executable = process.execPath): WaitProcess {
+export function cursorReceiveProcess(script: string, deliveryId: string, executable = liveNodeExecutable()): WaitProcess {
   const args = [script, "--delivery", deliveryId];
   return {
     executable,
