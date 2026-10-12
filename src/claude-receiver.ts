@@ -5,7 +5,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { z } from "zod";
 import { waitForFileState, writeJson0600 } from "./files.js";
-import { hookOwnerProcess, readRuntimeProcesses, type RuntimeProcess } from "./process.js";
+import { hookOwnerProcess, processIsRunning, readProcessIdentities, readProcessLineage, type RuntimeProcess } from "./process.js";
 import { ClaudeDeliveryError } from "./errors.js";
 import type { ProductProfile } from "./profile.js";
 
@@ -21,7 +21,8 @@ export const claudeParentSchema = z.object({
 }).strict();
 export type ClaudeParent = z.infer<typeof claudeParentSchema>;
 
-function processIdentity(pid: number): string | undefined { return readRuntimeProcesses().find(entry => entry.pid === pid)?.started_identity; }
+// 1個のprocessだけを読む。全processの一覧は取らない。
+function processIdentity(pid: number): string | undefined { return readProcessIdentities([pid])[0]?.started_identity ?? undefined; }
 function directory(parent: ClaudeParent): string { return path.join(parent.hook_root, parent.request_id); }
 function readInvocation(profile: ProductProfile, parent: ClaudeParent): Invocation {
   let value: Invocation;
@@ -42,8 +43,7 @@ function assertOpen(parent: ClaudeParent): void {
 export function prepareClaudeHookRequest(input: unknown, root: string): void {
   const event = z.object({ session_id: z.uuid(), tool_use_id: requestId, agent_id: z.string().optional() }).parse(input);
   // shellを通す形のhookでは、直接の親はshellになる。shellはこのhookと一緒に終わるので、その先のClaude processを記録する。
-  const rows = readRuntimeProcesses();
-  const owner = hookOwnerProcess(rows, process.ppid);
+  const owner = hookOwnerProcess(readProcessLineage(process.ppid), process.ppid);
   if (!owner) throw new ClaudeDeliveryError("CLAUDE_PARENT_PROCESS_UNAVAILABLE", "hookを起動した親processを確認できません");
   const dir = path.join(root, event.tool_use_id);
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
@@ -51,8 +51,8 @@ export function prepareClaudeHookRequest(input: unknown, root: string): void {
     request_id: event.tool_use_id, session_id: event.session_id, agent_id: event.agent_id ?? null,
     parent_pid: owner.pid, parent_started_identity: owner.started_identity,
   } satisfies Invocation);
-  // 記録を置いた後に見回る。process表は上で読んだものを使う。見回りの失敗で依頼を止めない。
-  try { sweepClaudeHookRequests(root, rows); } catch { /* 次の依頼でまた見回る */ }
+  // 記録を置いた後に見回る。依頼元の生き死には、古い置き場が在る時にだけ、その1個を読む。見回りの失敗で依頼を止めない。
+  try { sweepClaudeHookRequests(root, processIsRunning); } catch { /* 次の依頼でまた見回る */ }
 }
 
 // 届いた依頼の置き場は送り手が消す。見回りが消すのは、届かないまま残った分。
@@ -65,7 +65,10 @@ const REQUEST_FILES = new Set(["request.json", "delivery.json", "answer.json", "
  * 消すのは、最後に書かれてから1日たち、待っている配送が無い置き場だけ。依頼元のClaude processが居て、配送を結んであり、
  * まだ出し終えていない置き場は、何日たっても残す（子が長く動いている配送）。1日は、届かなかった時に原因を調べる間。
  */
-export function sweepClaudeHookRequests(root: string, rows: readonly RuntimeProcess[], now: number = Date.now()): number {
+export function sweepClaudeHookRequests(root: string,
+  rows: readonly RuntimeProcess[] | ((pid: number, startedIdentity: string) => boolean), now: number = Date.now()): number {
+  const running = typeof rows === "function" ? rows
+    : (pid: number, startedIdentity: string) => rows.find(row => row.pid === pid)?.started_identity === startedIdentity;
   let entries: fs.Dirent[];
   try { entries = fs.readdirSync(root, { withFileTypes: true }); } catch { return 0; }
   let removed = 0;
@@ -82,7 +85,7 @@ export function sweepClaudeHookRequests(root: string, rows: readonly RuntimeProc
         // 依頼元を読めない置き場には、もう誰も届けられない。
         let invocation: Invocation | undefined;
         try { invocation = invocationSchema.parse(JSON.parse(fs.readFileSync(path.join(dir, "request.json"), "utf8"))); } catch { /* 消す */ }
-        if (invocation && rows.find(row => row.pid === invocation.parent_pid)?.started_identity === invocation.parent_started_identity) continue;
+        if (invocation && running(invocation.parent_pid, invocation.parent_started_identity)) continue;
       }
       fs.rmSync(dir, { recursive: true, force: true });
       removed += 1;
@@ -153,14 +156,15 @@ export function closeClaudeParentSession(input: unknown, root: string): void {
 }
 
 function assertParentAlive(invocation: Invocation): void {
-  if (processIdentity(invocation.parent_pid) !== invocation.parent_started_identity) {
+  if (!processIsRunning(invocation.parent_pid, invocation.parent_started_identity)) {
     throw new ClaudeDeliveryError("CLAUDE_PARENT_PROCESS_CLOSED", "依頼元のClaude processは終了しました。回答は保存したままです");
   }
 }
 
 export async function submitClaudeParentAnswer(
   profile: ProductProfile, parent: ClaudeParent, deliveryId: string, text: string,
-  runtime: { processes: () => RuntimeProcess[] } = { processes: readRuntimeProcesses },
+  // 既定は、確かめる2個（受信hookと依頼元）だけを読む。`processes` を渡した時は、その一覧で確かめる。
+  runtime: { processes?: () => RuntimeProcess[]; running?: (pid: number, startedIdentity: string) => boolean } = { running: processIsRunning },
 ): Promise<{ queued_submission_id: null }> {
   const invocation = readInvocation(profile, parent);
   const dir = directory(parent);
@@ -181,8 +185,10 @@ export async function submitClaudeParentAnswer(
       const value = JSON.parse(fs.readFileSync(failed, "utf8"));
       throw new ClaudeDeliveryError("CLAUDE_PARENT_HOOK_FAILED", "親へのhook出力が失敗しました。回答は保存したままです", value.outcome_unknown === true);
     }
-    const rows = runtime.processes();
-    const alive = (pid: number, identity: string) => rows.find(entry => entry.pid === pid)?.started_identity === identity;
+    const rows = runtime.processes?.();
+    const alive = (pid: number, identity: string) => rows
+      ? rows.find(entry => entry.pid === pid)?.started_identity === identity
+      : (runtime.running ?? processIsRunning)(pid, identity);
     let gone: ClaudeDeliveryError | undefined;
     const hookFile = path.join(dir, "hook.json");
     if (fs.existsSync(hookFile)) {

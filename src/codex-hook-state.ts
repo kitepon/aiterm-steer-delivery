@@ -6,7 +6,7 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import { CodexDeliveryError } from "./errors.js";
 import { codexHookDirectory, type ProductProfile } from "./profile.js";
-import { readRuntimeProcesses, type RuntimeProcess } from "./process.js";
+import { processIsRunning, readProcessLineage, type RuntimeProcess } from "./process.js";
 import { writeHookJson } from "./files.js";
 export { writeHookJson };
 
@@ -61,7 +61,7 @@ export function codexHookDeliveryState(home: string, thread: string, id: string,
   // 所有権のlinkだけを作った段階では、公式キューからまだ削除していない。
   if (hookInputSchema.safeParse(value).success) return null;
   if (value.state === "unknown") return "unknown";
-  if (value.state === "deleting") return readRuntimeProcesses().some(row => row.pid === value.pid && row.started_identity === value.started_identity) ? "sending" : "unknown";
+  if (value.state === "deleting") return processIsRunning(value.pid, value.started_identity) ? "sending" : "unknown";
   if (["emitted", "not_in_queue"].includes(value.state)) return null;
   throw new CodexDeliveryError("CODEX_HOOK_STATE_INVALID", "hookの配送状態を読めません");
 }
@@ -91,7 +91,8 @@ export function assertCodexHookParentCurrent(profile: ProductProfile, config: Co
   try { fs.accessSync(config.node, fs.constants.X_OK); fs.accessSync(config.hook, fs.constants.R_OK); }
   catch { throw new CodexDeliveryError("CODEX_HOOK_RUNTIME_UNAVAILABLE", `Codex親hookの実行ファイルを確認できません。${profile.setup_command}を実行してください`); }
   if (!config.stale_processes.length) return;
-  const processes = new Map((rows ?? readRuntimeProcesses()).map(row => [row.pid, row]));
+  // 見るのは、このhookの先祖だけ。全processの一覧は取らない。
+  const processes = new Map((rows ?? readProcessLineage(pid, 32)).map(row => [row.pid, row]));
   const seen = new Set<number>();
   let current = processes.get(pid);
   while (current && !seen.has(current.pid)) {

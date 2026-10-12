@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.4.5
+
+待機や受信hookが、端末の全processの一覧を取り続けて端末を重くしていたのを直します。関数の名前・引数・返り、置き場の作り、符号は変わりません。
+
+- **起きていた事。** channelの待機（`runClaudeChannelWaiter`。hookから起きて最長1日待つ）は、出す先のClaude Codeが生きているかを、
+  5秒おきに全processの一覧（`readRuntimeProcesses`）で確かめていた。Windowsでは1回ごとにPowerShell 7を起こし、WMIで全processを引く。
+  待機は会話の数だけ同時に動く。process 1300個のWindowsで、待機11個が5秒おきにこれを回し、WMIの側のprocessがCPUを2〜7コア使っていた
+  （2026-10-12）。受信hookが走るたびにも、自分・持ち主・前の待機を確かめるために、全processの一覧を2〜3回取っていた。
+- **5秒おきは、pidの有無だけを見る。** OSへ直接聞き（`process.kill(pid, 0)`）、processを起こさない。開始時刻の照合は、最初と60秒に1回だけ。
+  出す先が終わった直後に同じpidが別のprocessへ使い回された時だけ、待機の終わりが最長60秒遅れる。
+- **1個のprocessを読む時は、その1個だけを読む。** 足した口: `readProcessIdentities(pids)`（指定したpidの開始時刻）、
+  `processIsRunning(pid, started_identity)`（記録にある本人のまま居るか。居ないと分かっている時はprocessを起こさない）、
+  `processExists(pid)`、`readProcessLineage(pid)`（そのpidと先祖。hookの持ち主を探す）。
+  今までの`readRuntimeProcesses`（全processの一覧）は残してある。
+- **Windowsでは、1個を読むのにWMIを使わない。** .NETのprocessの読み（`Process.StartTime`と`Parent`）を使う。WMIは絞っても1回に0.1〜0.3秒かかり、
+  .NETは1個1.5ミリ秒。開始時刻は今までと同じ文字列になる（WMIはマイクロ秒で切り捨てた値を返し、どちらも1ミリ秒で切り捨てて使う。
+  実物の888個のprocessで食い違いは0）。権限が無くて読めないprocessだけ、WMIへ聞き直す。
+- 置き換えた所: channelの待機と持ち主の確かめ、受け口が取った記録の確かめ、受信hookの依頼の記録と古い置き場の見回り、
+  回答を届ける間の確かめ（`submitClaudeParentAnswer`）、Codexの受信hookの自分の確かめと先祖の確かめ。
+- `sweepClaudeHookRequests`の2つ目の引数は、今までの一覧のほかに、確かめる関数（`(pid, started_identity) => boolean`）も受ける。
+  `submitClaudeParentAnswer`の`runtime`は、今までの`processes`のほかに`running`も受ける。今までの渡し方はそのまま動く。
+- 今動いている待機と受信hookは、古い中身のまま動き続ける。新しい中身になるのは、部品を入れ替えた後に起きたprocessから。
+
 ## 0.4.4
 
 channelへ同じ配送IDの本文を送り直した時に、親へ同じ文が2回出る事があったのを直します。関数の形、置き場の作り、符号は変わりません。

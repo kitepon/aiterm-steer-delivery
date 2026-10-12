@@ -12,7 +12,7 @@ import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
 import { writeJson0600 } from "./files.js";
-import { hookOwnerProcess, readRuntimeProcesses } from "./process.js";
+import { hookOwnerProcess, processExists, processIsRunning, readProcessIdentities, readProcessLineage } from "./process.js";
 import { channelRoot, type ProductProfile } from "./profile.js";
 import { SteerDeliveryError } from "./errors.js";
 import { submitCodexParentAnswer, type CodexParent, type CodexReceiverRuntime } from "./codex-receiver.js";
@@ -43,8 +43,9 @@ export type ChannelDeliveryState = "queued" | "sending" | "emitted" | "unknown" 
 function channelDir(profile: ProductProfile, channelId: string): string {
   return path.join(channelRoot(profile), uuid.parse(channelId));
 }
+// 1個のprocessだけを読む。全processの一覧は取らない（Windowsでは1回が重く、待機の数だけ回ると端末全体を重くする）。
 function processIdentity(pid: number): string | undefined {
-  return readRuntimeProcesses().find(entry => entry.pid === pid)?.started_identity;
+  return readProcessIdentities([pid])[0]?.started_identity ?? undefined;
 }
 
 function mkdirs(...dirs: string[]): void { for (const dir of dirs) fs.mkdirSync(dir, { recursive: true, mode: 0o700 }); }
@@ -147,7 +148,7 @@ export function channelDeliveryState(profile: ProductProfile, channelId: string,
     try { value = JSON.parse(fs.readFileSync(claim, "utf8")); } catch { return "sending"; }
     if (value.state === "unknown") return "unknown";
     if (value.state === "withdrawn") return "withdrawn";
-    if (typeof value.pid === "number" && typeof value.started_identity === "string" && processIdentity(value.pid) !== value.started_identity) return "unknown";
+    if (typeof value.pid === "number" && typeof value.started_identity === "string" && !processIsRunning(value.pid, value.started_identity)) return "unknown";
     return "sending";
   }
   return fs.readdirSync(path.join(dir, "inbox")).some(name => name.endsWith(`-${deliveryId}.json`)) ? "queued" : null;
@@ -258,7 +259,7 @@ function acquireWaiter(index: string): string | null {
     }
     let owner: { pid?: unknown; started_identity?: unknown } = {};
     try { owner = JSON.parse(fs.readFileSync(file, "utf8")); } catch { /* 書き込み途中。次の試行で読む */ }
-    if (typeof owner.pid === "number" && typeof owner.started_identity === "string" && processIdentity(owner.pid) === owner.started_identity) return null;
+    if (typeof owner.pid === "number" && typeof owner.started_identity === "string" && processIsRunning(owner.pid, owner.started_identity)) return null;
     // 終了した待機の記録。renameで一つのprocessだけが片付ける。
     try { fs.renameSync(file, path.join(index, `waiter.${randomUUID()}.stale`)); } catch { /* 他のprocessが先に片付けた */ }
     for (const name of fs.readdirSync(index).filter(entry => entry.endsWith(".stale"))) fs.rmSync(path.join(index, name), { force: true });
@@ -276,7 +277,7 @@ function releaseWaiter(index: string, identity: string): void {
 
 /** このhookを起こしたClaude Codeのprocess。shellを通す形のhookでは、直接の親のshellの先をたどる。分からなければnull。 */
 function currentHookOwner(): { pid: number; started_identity: string } | null {
-  const owner = hookOwnerProcess(readRuntimeProcesses(), process.ppid);
+  const owner = hookOwnerProcess(readProcessLineage(process.ppid), process.ppid);
   return owner ? { pid: owner.pid, started_identity: owner.started_identity } : null;
 }
 
@@ -289,8 +290,15 @@ function currentHookOwner(): { pid: number; started_identity: string } | null {
  * Claude Codeが起動し直して同じ会話を再開した後も、前のprocessが開いたchannelの本文が届く。
  * hookを起こしたprocessを確かめられない時だけ、channelを開いた時のprocessの生き死にで決める。
  */
+// 待機は最長で1日続き、会話の数だけ同時に動く。5秒おきの確かめはpidの有無だけにして（processを起こさない）、
+// 開始時刻は最初とこの間隔でだけ照合する。出す先が終わった直後に同じpidが使い回された時だけ、待機の終わりが最長でこの間隔だけ遅れる。
+const WAITER_OWNER_IDENTITY_RECHECK_MS = 60_000;
+
 export async function runClaudeChannelWaiter(profile: ProductProfile, input: unknown, emit: (text: string) => Promise<void> | void,
-  options: { wait_ms?: number; poll_ms?: number; owner?: { pid: number; started_identity: string } | null } = {}): Promise<0 | 2> {
+  options: { wait_ms?: number; poll_ms?: number; owner?: { pid: number; started_identity: string } | null;
+    // 試験用。出す先の確かめ方、pidの有無を見る間隔、開始時刻を照合し直す間隔。
+    owner_check_ms?: number; identity_recheck_ms?: number;
+    runtime?: { exists: (pid: number) => boolean; identity: (pid: number) => string | undefined } } = {}): Promise<0 | 2> {
   const event = z.object({ session_id: z.uuid() }).loose().parse(input);
   if (!openClaudeChannels(profile, event.session_id).length) return 0;
   const owner = options.owner === undefined ? currentHookOwner() : options.owner;
@@ -298,16 +306,22 @@ export async function runClaudeChannelWaiter(profile: ProductProfile, input: unk
   const identity = acquireWaiter(index);
   if (!identity) return 0;
   const deadline = Date.now() + (options.wait_ms ?? 86_340_000);
+  const runtime = options.runtime ?? { exists: processExists, identity: processIdentity };
+  const recheckMs = options.identity_recheck_ms ?? WAITER_OWNER_IDENTITY_RECHECK_MS;
   let lastParentCheck = 0;
+  let lastIdentityCheck: number | null = null;
   try {
     for (;;) {
       const channels = openClaudeChannels(profile, event.session_id);
       if (!channels.length) return 0;
-      if (Date.now() - lastParentCheck >= 5_000) {
+      if (Date.now() - lastParentCheck >= (options.owner_check_ms ?? 5_000)) {
         lastParentCheck = Date.now();
         // 本文を出す先（このhookを起こしたClaude process）が終わっていたら、本文を取らずに待機を終える。
-        const alive = owner ? processIdentity(owner.pid) === owner.started_identity
-          : channels.some(channel => processIdentity(channel.claude!.parent_pid) === channel.claude!.parent_started_identity);
+        const verify = lastIdentityCheck === null || lastParentCheck - lastIdentityCheck >= recheckMs;
+        if (verify) lastIdentityCheck = lastParentCheck;
+        const running = (pid: number, identity: string) => runtime.exists(pid) && (!verify || runtime.identity(pid) === identity);
+        const alive = owner ? running(owner.pid, owner.started_identity)
+          : channels.some(channel => running(channel.claude!.parent_pid, channel.claude!.parent_started_identity));
         if (!alive) return 0;
       }
       // 同じ会話に開いているchannelが幾つかある時（起動し直す前のchannelと後のchannel）も、届いた順に出す。

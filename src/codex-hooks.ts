@@ -6,7 +6,7 @@ import { z } from "zod";
 import { realCodexHome, currentCodexDesktopBinary } from "./codex-binary.js";
 import { withCodexReceiver, type CodexReceiverRuntime } from "./codex-receiver.js";
 import { CodexDeliveryError } from "./errors.js";
-import { readRuntimeProcesses } from "./process.js";
+import { readProcessIdentities } from "./process.js";
 import { codexHookDirectory, type ProductProfile } from "./profile.js";
 import { answerDigest, codexInputDirectory, hookInputSchema, readCodexHookConfig, writeHookJson } from "./codex-hook-state.js";
 
@@ -28,8 +28,9 @@ export async function runCodexResultHook(profile: ProductProfile, input: unknown
   const claims = path.join(directory, "claims");
   fs.mkdirSync(claims, { recursive: true, mode: 0o700 });
   const taken: { file: string; delivery_id: string; text: string }[] = [];
-  const identity = readRuntimeProcesses().find(row => row.pid === process.pid);
-  if (!identity) throw new CodexDeliveryError("CODEX_HOOK_PROCESS_UNAVAILABLE", "受信hookのprocessを確認できません");
+  const own = readProcessIdentities([process.pid])[0];
+  if (!own || own.started_identity === null) throw new CodexDeliveryError("CODEX_HOOK_PROCESS_UNAVAILABLE", "受信hookのprocessを確認できません");
+  const identity = { pid: own.pid, started_identity: own.started_identity };
   try {
     await withCodexReceiver(profile, { thread_id: event.session_id, codex_home: home }, async request => {
       // 削除でoffsetが動くため、全ページを読んでから取り出す。

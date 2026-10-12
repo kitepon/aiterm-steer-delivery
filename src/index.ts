@@ -3,7 +3,7 @@
 export * from "./profile.js";
 export * from "./errors.js";
 export { writeJson0600, writeHookJson, waitForFileState, withoutBom } from "./files.js";
-export { readRuntimeProcesses, parsePosixProcessTable, hookOwnerProcess, type RuntimeProcess, type NativeProcessIdentity } from "./process.js";
+export { readRuntimeProcesses, readProcessIdentities, readProcessLineage, processExists, processIsRunning, parsePosixProcessTable, hookOwnerProcess, type RuntimeProcess, type NativeProcessIdentity } from "./process.js";
 export { resolveWindowsPowerShell7, quotePowerShell, windowsPowerShellSync, windowsStartProcessArgumentList } from "./windows.js";
 export { setupNodeExecutable } from "./setup-node.js";
 
