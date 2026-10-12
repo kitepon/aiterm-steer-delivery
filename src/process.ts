@@ -111,7 +111,9 @@ const WINDOWS_STARTED = [
  * 開始時刻を読めないprocess（別の権限のserviceなど）は、pidがprocess表にある印として `started_identity: null` で返す。
  */
 export function readProcessIdentities(pids: readonly number[]): { pid: number; started_identity: string | null }[] {
-  const wanted = assertPids(pids);
+  // 居ないpidは、OSへ直接聞いて先に除く。全部居なければ、processを起こさない。
+  // macOSのpsは、範囲の外のpidが1つ混ざると、居るprocessの分も出さずに誤りで終わる。
+  const wanted = assertPids(pids).filter(processExists);
   if (wanted.length === 0) return [];
   if (!isWin) {
     const result = spawnSync("/bin/ps", ["-o", "pid=,lstart=", "-p", wanted.join(",")], {
