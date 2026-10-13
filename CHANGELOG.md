@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.4.7
+
+Codexの受け口が断った配送の所有記録が残り、同じ配送IDの渡し直しが通らなくなっていたのを直します。関数の名前・引数・返りの形と置き場の作りは変わりません。符号が1つ増えます。
+
+- **起きていた事。** `submitCodexParentAnswer`（CLIの`codex submit`）は、hookが有効な製品では、送る前に所有記録
+  （`inputs/<homeのhash>/<会話>/pending/<配送ID>.json`）を書く。送信が断られた後も、この記録と`settled`が残っていた。
+  記録を片付けるのは、その会話で走るhook（PostToolUse／Stop）だけ。片付け済み（archived）の会話や止まっている会話ではhookが走らないので、
+  記録が残り続け、同じ配送IDの渡し直しが`EEXIST: file already exists`（素のファイルの誤り）で失敗していた。
+  2026-10-13、片付け済みの会話へ入れて`CODEX_RECEIVER_REJECTED`で断られた配送が、`codex unarchive`で会話を戻した後も通らなかった。
+- **公式キューへ入らなかった配送の所有記録は、送信が自分で消す。** 受け口が断った時（`CODEX_RECEIVER_REJECTED`）と、キューへ頼む前に止まった時
+  （Codexを起こせない、`initialize`が返らない・断られる）。`outcome_unknown`がfalseの失敗の後は、`pending`も`settled`も残らず、同じ配送IDで送り直せる。
+- **受け付けたか分からない失敗（`outcome_unknown`がtrue）の後と、受け付けた後は、今までどおり記録を残す。** キューに入っているかも知れない本文を、
+  hookが取り出せるようにするため。
+- **記録が在る配送IDをもう一度渡した時の誤りが、符号つきになる。** `CODEX_DELIVERY_DUPLICATE`（`outcome_unknown`はfalse。この呼び出しでは何も送っていない）。
+  今までは素の`EEXIST`で、CLIの返りの`code`は`EEXIST`、文面にファイルの場所が入っていた。
+- 足した口: `withdrawCodexHookInput(home, thread, id, root)`（所有記録を自分で書いて送る製品が、キューに入らなかった時に呼ぶ）。
+- **残っていた記録は本文を持たない**（配送ID・会話・本文のhashだけ）。会話が後で動いた時、hookはキューに在る項目しか取り出さないので、
+  断られた配送の本文が会話へ入る事は無い。0.4.6までの記録が残っている会話では、次にhookが走った時に片付く。それまでは同じ配送IDが
+  `CODEX_DELIVERY_DUPLICATE`になる。
+- 試験: 偽の受け口で、断り・キューの前の止まり・分からない失敗・受け付けた後・hookが無効な製品・前の版の残り。CLIの`codex submit`の返り。
+  公式Codex 0.162.1で、片付け済みの会話に断られ、戻した後に同じ配送IDで入る所。
+
 ## 0.4.6
 
 動いている最中にNodeが更新されて前の版の場所が消えると、Nodeを起こせなくなっていたのを直します。関数の名前・引数・返りの形、置き場の作り、符号は変わりません。

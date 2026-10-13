@@ -143,6 +143,8 @@ await steer.verifyCodexParent(PROFILE, parent);
 const { queued_submission_id } = await steer.submitCodexParentAnswer(PROFILE, parent, deliveryId, text);
 ```
 
+Codex への送信が失敗した時、本文が公式キューに入っていないと言える失敗（`outcome_unknown` が false。受け口が断った時、キューへ頼む前に止まった時）は、同じ配送IDでもう一度送れます。片付け済み（archived）の会話は Codex が `CODEX_RECEIVER_REJECTED` で断るので、`codex unarchive` で戻した後に同じ配送IDで送り直せます。受け付けた後と、受け付けたか分からない失敗（`outcome_unknown` が true）の後は、hook が有効な製品では、所有記録（`pending/<配送ID>.json`）が在る間、同じ配送IDを `CODEX_DELIVERY_DUPLICATE` で断り、何も送りません。配送IDは本文ごとに決め、別の本文で使い回しません。
+
 Claude Code は `claudeParentFromRequest`／`bindClaudeParentDelivery`／`submitClaudeParentAnswer`、Cursor は `cursorParentFromRequest`／`prepareCursorDelivery`／`submitCursorParentAnswer` で同じ流れになります。各 `…ParentFromRequest` は呼び出し元が別のクライアントなら `null` を返すので、順に試せます。Cursor では、hook が会話に結び付けられるよう、ツール結果に配送IDを入れます。`structuredContent` には `parent_delivery: { delivery_id }`、本文には `delivery_id=<uuid>` の行を書きます。
 
 Claude Code は、ツールの返りが誤り（`isError`）の時に `PostToolUse` の hook を走らせません。誤りで返す時は、返す前に `discardClaudeHookRequest(clientName, request.params._meta, claudeHookRoot(PROFILE))` を呼び、その呼び出しの置き場を消します。配送を結んだ置き場は消しません。呼ばなくても、残った置き場は1日後に次の依頼の hook が消します。
