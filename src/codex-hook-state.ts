@@ -44,7 +44,17 @@ export function registerCodexHookInput(home: string, thread: string, id: string,
   const directory = codexInputDirectory(root, home, thread);
   fs.mkdirSync(path.join(directory, "pending"), { recursive: true, mode: 0o700 });
   // 一つの配送IDを別の本文で再使用しない。送信前の所有記録は再送の指示にはしない。
-  fs.writeFileSync(path.join(directory, "pending", `${id}.json`), JSON.stringify(input) + "\n", { flag: "wx", mode: 0o600 });
+  try { fs.writeFileSync(path.join(directory, "pending", `${id}.json`), JSON.stringify(input) + "\n", { flag: "wx", mode: 0o600 }); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+    // 記録が在るのは、送っている最中・受け付けた後・受け付けたか分からない送信の後。この呼び出しでは何も送っていない。
+    throw new CodexDeliveryError("CODEX_DELIVERY_DUPLICATE", "同じ配送IDの所有記録がすでにあります。本文は送っていません");
+  }
+}
+/** 公式キューへ入らなかった配送の所有記録を消す。呼ぶのは、その記録を書いた送信だけ。 */
+export function withdrawCodexHookInput(home: string, thread: string, id: string, root: string): void {
+  // settledを書いていないので、hookはこの記録に触っていない（片付けるのはsettledが在る記録、取り出すのはキューに在る項目だけ）。
+  fs.rmSync(path.join(codexInputDirectory(root, home, thread), "pending", `${id}.json`), { force: true });
 }
 export function finishCodexHookSubmission(home: string, thread: string, id: string, root: string): void {
   const directory = codexInputDirectory(root, home, thread);

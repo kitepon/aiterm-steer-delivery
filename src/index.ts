@@ -13,7 +13,7 @@ export {
 } from "./codex-binary.js";
 export {
   codexHookConfigSchema, readCodexHookConfig, codexInputDirectory, hookInputSchema, answerDigest,
-  registerCodexHookInput, finishCodexHookSubmission, codexHookDeliveryState, ownedCodexHooks,
+  registerCodexHookInput, withdrawCodexHookInput, finishCodexHookSubmission, codexHookDeliveryState, ownedCodexHooks,
   assertCodexHooksReady, assertCodexHookParentCurrent, type CodexHookConfig,
 } from "./codex-hook-state.js";
 export {

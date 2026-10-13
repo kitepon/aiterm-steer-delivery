@@ -4,10 +4,10 @@
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 import * as path from "node:path";
-import { CodexDeliveryError } from "./errors.js";
+import { CodexDeliveryError, SteerDeliveryError } from "./errors.js";
 import { codexHookDirectory, type ProductProfile } from "./profile.js";
 import { codexSpawnEnv, currentCodexDesktopBinary, realCodexHome, resolveCodexExecutable } from "./codex-binary.js";
-import { finishCodexHookSubmission, assertCodexHookParentCurrent, assertCodexHooksReady, readCodexHookConfig, registerCodexHookInput } from "./codex-hook-state.js";
+import { finishCodexHookSubmission, assertCodexHookParentCurrent, assertCodexHooksReady, readCodexHookConfig, registerCodexHookInput, withdrawCodexHookInput } from "./codex-hook-state.js";
 import { startCodexWakeWatch } from "./codex-wake.js";
 
 export interface CodexParent {
@@ -166,7 +166,9 @@ export async function submitCodexParentAnswer(
   const hook = root && readCodexHookConfig(profile, root)?.enabled;
   if (hook) registerCodexHookInput(parent.codex_home, parent.thread_id, deliveryId, text, root);
   let accepted: { queued_submission_id: string };
+  let asked = false;
   try { accepted = await withCodexReceiver(profile, parent, async (request) => {
+    asked = true;
     const result = await request("thread/queue/add", {
       threadId: parent.thread_id,
       input: [{ type: "text", text, text_elements: [] }],
@@ -177,7 +179,17 @@ export async function submitCodexParentAnswer(
     }
     return { queued_submission_id: result.queuedSubmission.id };
   }, runtime); }
-  finally { if (hook) finishCodexHookSubmission(parent.codex_home, parent.thread_id, deliveryId, root); }
+  catch (error) {
+    if (hook) {
+      // 受け口が断った時と、キューへ頼む前に止まった時は、キューに入っていない。所有記録を残すと、hookが走るまで同じ配送IDの渡し直しが通らない
+      // （片付け済みの会話や止まっている会話では、hookが走らない）。受け付けたか分からない時は、hookが取り出せるように残す。
+      const maybeQueued = error instanceof SteerDeliveryError ? error.outcome_unknown : asked;
+      if (maybeQueued) finishCodexHookSubmission(parent.codex_home, parent.thread_id, deliveryId, root);
+      else withdrawCodexHookInput(parent.codex_home, parent.thread_id, deliveryId, root);
+    }
+    throw error;
+  }
+  if (hook) finishCodexHookSubmission(parent.codex_home, parent.thread_id, deliveryId, root);
   if (runtime?.wake ?? !runtime) startCodexWakeWatch(profile, parent, deliveryId);
   return accepted;
 }

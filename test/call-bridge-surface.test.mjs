@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -109,4 +109,46 @@ test('call-bridgeの待ち受け: 受信の命令は、受け取ると1行のJSO
   assert.deepEqual(result.next_wait_process.args, wait.args);
   assert.equal(typeof result.next_wait_process.executable, 'string');
   assert.equal(api.channelDeliveryState(p, channel.channel_id, delivery), 'emitted');
+});
+
+test('call-bridgeのCodexの道（CLIの codex submit）: 受け口が断った配送は所有記録を残さず、同じ配送IDで渡し直せる。受け付けた後の同じ配送IDは CODEX_DELIVERY_DUPLICATE', t => {
+  // call-bridgeは、通話とseqで決まる配送ID（渡し直しでも同じ）で、確かに失敗した返信をもう一度渡す。
+  const root = fresh(t);
+  const home = join(root, 'home'), hooks = join(root, 'codex-parent-hooks');
+  mkdirSync(home); mkdirSync(hooks);
+  const file = join(root, 'profile.json');
+  writeFileSync(file, JSON.stringify({ id: 'call-bridge', display_name: 'call-bridge', setup_command: 'call-bridge-setup enable', codex_steer_command: 'call-bridge-setup enable',
+    mcp_server: 'call-bridge', dispatch_tools: ['call_open'], state_root: root, config_root: root,
+    hooks: { codex: 'call-bridge-codex-hook.js', claude: 'call-bridge-claude-hook.js', cursor: 'call-bridge-cursor-hook.js' },
+    codex_client_name: 'grokbot_bridge_parent_delivery', codex_hook_schema: 'call-bridge.codex-parent-hooks.v1', backup_suffix: '.call-bridge-backup' }));
+  // 偽のCodex。nodeを「app-server --listen stdio://」で起こすと、cwdの app-server というfileが走る。
+  writeFileSync(join(root, 'app-server'), `const { createInterface } = require('node:readline');
+const { existsSync } = require('node:fs');
+createInterface({ input: process.stdin }).on('line', line => {
+  const message = JSON.parse(line);
+  if (message.id === undefined) return;
+  const archived = message.method === 'thread/queue/add' && existsSync('archived');
+  process.stdout.write(JSON.stringify({ id: message.id, ...(archived ? { error: { code: -32600, message: 'session is archived. Run codex unarchive first.' } }
+    : { result: message.method === 'thread/queue/add' ? { queuedSubmission: { id: 'q-1' } } : {} }) }) + '\\n');
+});\n`);
+  writeFileSync(join(hooks, 'config.json'), JSON.stringify({ schema: 'call-bridge.codex-parent-hooks.v1', enabled: true, codex_home: home,
+    binary: process.execPath, command: 'call-bridge-hook', node: process.execPath, hook: join(hooks, 'call-bridge-codex-hook.js'), stale_processes: [] }));
+  const thread = randomUUID(), delivery = randomUUID();
+  const submit = () => {
+    const run = spawnSync(process.execPath, [join(process.cwd(), 'dist', 'cli.js'), '--profile', file, 'codex', 'submit', '--thread', thread, '--delivery', delivery,
+      '--text-file', '-', '--codex-home', home], { cwd: root, input: '返信', encoding: 'utf8', windowsHide: true, env: { ...process.env, AITERM_STEER_CODEX_WAKE: '0' } });
+    const lines = run.stdout.split('\n').filter(Boolean);
+    assert.equal(lines.length, 1, run.stderr);
+    return { status: run.status, ...JSON.parse(lines[0]) };
+  };
+  const pending = join(api.codexInputDirectory(hooks, home, thread), 'pending', `${delivery}.json`);
+  writeFileSync(join(root, 'archived'), '');
+  const refused = submit();
+  assert.deepEqual([refused.status, refused.ok, refused.code, refused.outcome_unknown], [1, false, 'CODEX_RECEIVER_REJECTED', false], JSON.stringify(refused));
+  assert.equal(existsSync(pending), false);
+  rmSync(join(root, 'archived'));
+  assert.deepEqual(submit(), { status: 0, ok: true, queued_submission_id: 'q-1' });
+  assert.equal(existsSync(pending), true);
+  const again = submit();
+  assert.deepEqual([again.status, again.ok, again.code, again.outcome_unknown], [1, false, 'CODEX_DELIVERY_DUPLICATE', false], JSON.stringify(again));
 });
