@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.5.0
+
 - Optional native delivery admission passes existing request/parent references through queue, dequeue, emit and wake hooks without creating a second queue or resending input.
 - Hook runtime arguments and Codex custom hook commands preserve a shared native MCP entry, scope and provider. The admission capability advertises `native_hook_args:true`. Existing registrations without these optional arguments retain their command shape.
 
