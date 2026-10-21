@@ -14,6 +14,9 @@ callbackはactionを一度だけ呼んで応答まで待つ。libraryは本来�
 - Codex: App Server initialize等の事前照会の後、queue/add直前、同期hookのqueue/delete直前、
   同じhookの実stdout出力（複数existing deliveryを一度で出す場合を含む）、リンクopener直前。
   wakeのキュー確認待ちはnative作用受付の外で行う。
+  native_contextにはsession_id/turn_idに加えhook_event_name（PostToolUse/Stop）を渡す。
+  Stopのdecision:blockで返した本文を、そのhookのturn_idの完了と同一視しない。
+  製品がnative参照を記録しても、受取executionの対応と終了fenceは別に証明する。
 - Claude: answer.jsonの公開、実stderr出力、asyncRewakeのexit-2設定を別段階で受付する。
   required時のhookはresume作用口も必須。拒否/例外をexit 2へ変えず1で返す。
   runtime.identity/parentAliveはfixture注入用で、既定のnative照会を変更しない。

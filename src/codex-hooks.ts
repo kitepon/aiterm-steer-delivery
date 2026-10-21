@@ -74,7 +74,7 @@ export async function runCodexResultHook(profile: ProductProfile, input: unknown
         writeHookJson(file, { ...owner, text, state: "deleting", turn_id: event.turn_id, queued_submission_id: entry.id,
           pid: identity.pid, started_identity: identity.started_identity });
         const result = await withDeliveryEffect(profile, { vendor: "codex", stage: "dequeue", delivery_ids: [id.data],
-          endpoint: { thread_id: event.session_id, codex_home: home }, native_context: { session_id: event.session_id, turn_id: event.turn_id } },
+          endpoint: { thread_id: event.session_id, codex_home: home }, native_context: { session_id: event.session_id, turn_id: event.turn_id, hook_event_name: event.hook_event_name } },
         () => request("thread/queue/delete", { threadId: event.session_id, queuedSubmissionId: entry.id }));
         if (typeof result?.deleted !== "boolean") throw new CodexDeliveryError("CODEX_HOOK_QUEUE_INVALID", "キュー削除の結果を確認できません", true);
         if (!result.deleted) {
@@ -88,7 +88,7 @@ export async function runCodexResultHook(profile: ProductProfile, input: unknown
       ? { decision: "block", reason: text }
       : { hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: text } };
     if (taken.length) await withDeliveryEffect(profile, { vendor: "codex", stage: "emit", delivery_ids: taken.map(item => item.delivery_id),
-      endpoint: { thread_id: event.session_id, codex_home: home }, native_context: { session_id: event.session_id, turn_id: event.turn_id } }, () => emit(output));
+      endpoint: { thread_id: event.session_id, codex_home: home }, native_context: { session_id: event.session_id, turn_id: event.turn_id, hook_event_name: event.hook_event_name } }, () => emit(output));
     else await emit(output);
     for (const item of taken) writeHookJson(item.file, { delivery_id: item.delivery_id, state: "emitted", turn_id: event.turn_id, text: item.text });
   } catch (error) {
