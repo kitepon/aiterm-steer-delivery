@@ -5,6 +5,7 @@ import { homedir } from "node:os";
 import * as path from "node:path";
 import { z } from "zod";
 import { waitForFileState, withoutBom, writeJson0600 } from "./files.js";
+import { withDeliveryEffect, DeliveryAdmissionError } from "./delivery-effect.js";
 import { CursorDeliveryError } from "./errors.js";
 import type { ProductProfile } from "./profile.js";
 import { commandNamesFile } from "./hook-setup.js";
@@ -78,9 +79,13 @@ export async function submitCursorParentAnswer(
   deliveryId: string,
   text: string,
   timeoutMs = 86_400_000,
+  profile?: ProductProfile,
 ): Promise<{ queued_submission_id: null }> {
+  parent = cursorParentSchema.parse(parent);
   const dir = deliveryDir(parent, deliveryId);
-  writeJson0600(path.join(dir, "answer.json"), { delivery_id: deliveryId, text });
+  const write = () => writeJson0600(path.join(dir, "answer.json"), { delivery_id: deliveryId, text });
+  if (profile) await withDeliveryEffect(profile, { vendor: "cursor", stage: "queue", delivery_ids: [deliveryId], endpoint: parent }, write);
+  else write();
   try {
     await waitForFileState(dir, () => fs.existsSync(path.join(dir, "claim.json")) ? true : undefined, timeoutMs);
   } catch (error) {
@@ -166,7 +171,7 @@ function bind(hookRoot: string, deliveryId: string, conv: string): void {
   if (!fs.existsSync(index)) fs.writeFileSync(index, "", { mode: 0o600 });
 }
 
-function inject(hookRoot: string, conv: string): string[] {
+function inject(hookRoot: string, conv: string): { delivery_id: string; text: string }[] {
   const indexDir = path.join(hookRoot, "conversations", conv);
   if (!fs.existsSync(indexDir)) return [];
   const pending = fs.readdirSync(indexDir).flatMap(deliveryId => {
@@ -179,20 +184,21 @@ function inject(hookRoot: string, conv: string): string[] {
     if (answer.delivery_id !== deliveryId || bound.conversation_id !== conv) return [];
     return [{ deliveryId, dir, created_at: bound.created_at, text: answer.text }];
   }).sort((a, b) => a.created_at.localeCompare(b.created_at));
-  const texts: string[] = [];
+  const texts: { delivery_id: string; text: string }[] = [];
   for (const item of pending) {
     const index = path.join(indexDir, item.deliveryId);
     if (!claim(item.dir, "hook")) {
       if (fs.existsSync(path.join(item.dir, "claim.json"))) fs.rmSync(index, { force: true });
       continue;
     }
-    texts.push(item.text);
+    texts.push({ delivery_id: item.deliveryId, text: item.text });
     fs.rmSync(index, { force: true });
   }
   return texts;
 }
 
-export async function handleCursorHook(profile: ProductProfile, raw: string, hookRoot: string): Promise<Record<string, unknown>> {
+export async function handleCursorHook(profile: ProductProfile, raw: string, hookRoot: string,
+  nativeEmit?: (output: Record<string, unknown>) => Promise<void>): Promise<Record<string, unknown>> {
   let parsed: unknown;
   try { parsed = JSON.parse(withoutBom(raw)); }
   catch { return {}; }
@@ -209,8 +215,25 @@ export async function handleCursorHook(profile: ProductProfile, raw: string, hoo
     if (deliveryId) bind(hookRoot, deliveryId, conv);
   }
   if (name === "postToolUse" || name === "postToolUseFailure") {
+    // This legacy return-value API has no actual stdout effect boundary.
+    // Required admission must not release a lease before a caller emits it.
+    if (profile.delivery_admission && !nativeEmit) throw new DeliveryAdmissionError("DELIVERY_ADMISSION_UNSUPPORTED", "Cursor hookの出力受付が未接続です");
     const texts = inject(hookRoot, conv);
-    if (texts.length > 0) return { additional_context: texts.join("\n\n") };
+    if (texts.length > 0) {
+      const result = { additional_context: texts.map(item => item.text).join("\n\n") };
+      if (!profile.delivery_admission) return result;
+      try {
+        await withDeliveryEffect(profile, { vendor: "cursor", stage: "emit", delivery_ids: texts.map(item => item.delivery_id),
+          endpoint: { kind: "cursor", hook_root: hookRoot }, native_context: { conversation_id: conv, hook_event_name: name } },
+        () => nativeEmit!(result));
+        return {}; // stdout was emitted inside the lease, never emit it twice
+      } catch (error) {
+        for (const item of texts) writeJson0600(path.join(hookRoot, "deliveries", item.delivery_id, "failed.json"), {
+          delivery_id: item.delivery_id, outcome_unknown: (error as { outcome_unknown?: unknown }).outcome_unknown === true,
+        });
+        throw error;
+      }
+    }
   }
   return {};
 }
@@ -246,6 +269,13 @@ export async function receiveCursorAnswer(hookRoot: string, deliveryId: string, 
   if (answer.delivery_id !== id) throw new CursorDeliveryError("CURSOR_PARENT_DELIVERY_MISMATCH", "保存された回答の配送IDが一致しません");
   // 引き取ると送り主は配送済みにする。読み手が居ない時は引き取らず、回答を置き場に残す。
   if (reader && (gone || !(await reader.probe()))) return { outcome: "reader_gone" };
-  if (!claim(dir, "receiver")) return { outcome: "delivered_by_hook" };
+  if (!claim(dir, "receiver")) {
+    const failed = path.join(dir, "failed.json");
+    if (fs.existsSync(failed)) {
+      const value = JSON.parse(fs.readFileSync(failed, "utf8"));
+      throw new CursorDeliveryError("CURSOR_PARENT_DELIVERY_UNCONFIRMED", "前の受信結果を確認できません。自動再送はしていません", value.outcome_unknown === true);
+    }
+    return { outcome: "delivered_by_hook" };
+  }
   return { outcome: "delivered", text: answer.text };
 }

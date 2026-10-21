@@ -9,6 +9,7 @@ import { codexHookDirectory, type ProductProfile } from "./profile.js";
 import { codexSpawnEnv, currentCodexDesktopBinary, realCodexHome, resolveCodexExecutable } from "./codex-binary.js";
 import { finishCodexHookSubmission, assertCodexHookParentCurrent, assertCodexHooksReady, readCodexHookConfig, registerCodexHookInput, withdrawCodexHookInput } from "./codex-hook-state.js";
 import { startCodexWakeWatch } from "./codex-wake.js";
+import { withDeliveryEffect } from "./delivery-effect.js";
 
 export interface CodexParent {
   thread_id: string;
@@ -162,17 +163,20 @@ export async function submitCodexParentAnswer(
   text: string,
   runtime?: CodexReceiverRuntime,
 ): Promise<{ queued_submission_id: string | null }> {
+  parent = { ...parent };
   const root = runtime ? runtime.hook_directory : codexHookDirectory(profile);
   const hook = root && readCodexHookConfig(profile, root)?.enabled;
   if (hook) registerCodexHookInput(parent.codex_home, parent.thread_id, deliveryId, text, root);
   let accepted: { queued_submission_id: string };
   let asked = false;
   try { accepted = await withCodexReceiver(profile, parent, async (request) => {
-    asked = true;
-    const result = await request("thread/queue/add", {
+    const result = await withDeliveryEffect(profile, { vendor: "codex", stage: "queue", delivery_ids: [deliveryId], endpoint: parent }, () => {
+      asked = true;
+      return request("thread/queue/add", {
       threadId: parent.thread_id,
       input: [{ type: "text", text, text_elements: [] }],
       clientUserMessageId: deliveryId,
+      });
     });
     if (typeof result?.queuedSubmission?.id !== "string") {
       throw new CodexDeliveryError("CODEX_RECEIVER_INVALID_RESPONSE", "キューの受付IDを確認できません", true);

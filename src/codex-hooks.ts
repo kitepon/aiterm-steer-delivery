@@ -9,9 +9,11 @@ import { CodexDeliveryError } from "./errors.js";
 import { readProcessIdentities } from "./process.js";
 import { codexHookDirectory, type ProductProfile } from "./profile.js";
 import { answerDigest, codexInputDirectory, hookInputSchema, readCodexHookConfig, writeHookJson } from "./codex-hook-state.js";
+import { withDeliveryEffect } from "./delivery-effect.js";
 
 export async function runCodexResultHook(profile: ProductProfile, input: unknown, emit: (value: object) => Promise<void>, options: {
   directory?: string; codex_home?: string; runtime?: CodexReceiverRuntime;
+  identity?: () => { pid: number; started_identity: string | null } | undefined;
 } = {}): Promise<void> {
   const event = z.object({ session_id: z.uuid(), turn_id: z.string().min(1),
     hook_event_name: z.enum(["PostToolUse", "Stop"]) }).parse(input);
@@ -28,7 +30,7 @@ export async function runCodexResultHook(profile: ProductProfile, input: unknown
   const claims = path.join(directory, "claims");
   fs.mkdirSync(claims, { recursive: true, mode: 0o700 });
   const taken: { file: string; delivery_id: string; text: string }[] = [];
-  const own = readProcessIdentities([process.pid])[0];
+  const own = options.identity ? options.identity() : readProcessIdentities([process.pid])[0];
   if (!own || own.started_identity === null) throw new CodexDeliveryError("CODEX_HOOK_PROCESS_UNAVAILABLE", "受信hookのprocessを確認できません");
   const identity = { pid: own.pid, started_identity: own.started_identity };
   try {
@@ -71,7 +73,9 @@ export async function runCodexResultHook(profile: ProductProfile, input: unknown
         taken.push(item);
         writeHookJson(file, { ...owner, text, state: "deleting", turn_id: event.turn_id, queued_submission_id: entry.id,
           pid: identity.pid, started_identity: identity.started_identity });
-        const result = await request("thread/queue/delete", { threadId: event.session_id, queuedSubmissionId: entry.id });
+        const result = await withDeliveryEffect(profile, { vendor: "codex", stage: "dequeue", delivery_ids: [id.data],
+          endpoint: { thread_id: event.session_id, codex_home: home }, native_context: { session_id: event.session_id, turn_id: event.turn_id } },
+        () => request("thread/queue/delete", { threadId: event.session_id, queuedSubmissionId: entry.id }));
         if (typeof result?.deleted !== "boolean") throw new CodexDeliveryError("CODEX_HOOK_QUEUE_INVALID", "キュー削除の結果を確認できません", true);
         if (!result.deleted) {
           writeHookJson(file, { ...owner, state: "not_in_queue", turn_id: event.turn_id });
@@ -80,9 +84,12 @@ export async function runCodexResultHook(profile: ProductProfile, input: unknown
       }
     }, options.runtime ?? { executable: await currentCodexDesktopBinary(profile, config, { directory: root }), timeout_ms: 5_000 });
     const text = taken.map(item => item.text).join("\n\n");
-    await emit(!taken.length ? {} : event.hook_event_name === "Stop"
+    const output = !taken.length ? {} : event.hook_event_name === "Stop"
       ? { decision: "block", reason: text }
-      : { hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: text } });
+      : { hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: text } };
+    if (taken.length) await withDeliveryEffect(profile, { vendor: "codex", stage: "emit", delivery_ids: taken.map(item => item.delivery_id),
+      endpoint: { thread_id: event.session_id, codex_home: home }, native_context: { session_id: event.session_id, turn_id: event.turn_id } }, () => emit(output));
+    else await emit(output);
     for (const item of taken) writeHookJson(item.file, { delivery_id: item.delivery_id, state: "emitted", turn_id: event.turn_id, text: item.text });
   } catch (error) {
     for (const item of taken) writeHookJson(item.file, { delivery_id: item.delivery_id, state: "unknown", turn_id: event.turn_id, text: item.text });

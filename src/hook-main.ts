@@ -8,6 +8,7 @@ import { handleCursorHook } from "./cursor-receiver.js";
 import { withoutBom } from "./files.js";
 import { runCursorReceive } from "./cursor-receive.js";
 import { channelReceiveProcess, closeClaudeSessionChannels, handleCursorChannelHook, receiveFromChannel, runClaudeChannelWaiter } from "./channel.js";
+import { DeliveryAdmissionError } from "./delivery-effect.js";
 
 async function readStdin(): Promise<string> {
   let input = "";
@@ -38,13 +39,19 @@ export async function runClaudeHookMain(profile: ProductProfile, root: string = 
   try {
     const event = JSON.parse(await readStdin());
     if (event !== null && typeof event === "object" && typeof event.hookEventName === "string") return;
+    if (profile.delivery_admission && profile.channels)
+      throw new DeliveryAdmissionError("DELIVERY_ADMISSION_UNSUPPORTED", "channel入力の実行受付が未接続です");
     const write = (text: string) => new Promise<void>((resolve, reject) => {
       process.stderr.write(text, error => error ? reject(error) : resolve());
     });
     switch (event.hook_event_name) {
       case "PreToolUse": prepareClaudeHookRequest(event, root); break;
       case "PostToolUse":
-        process.exitCode = await runClaudeResultHook(profile, event, write, root);
+        if (profile.delivery_admission) {
+          let signaled = false;
+          const code = await runClaudeResultHook(profile, event, write, root, { resume: value => { process.exitCode = value; signaled = true; } });
+          if (!signaled) process.exitCode = code;
+        } else process.exitCode = await runClaudeResultHook(profile, event, write, root);
         // 単発の依頼が無いtoolの返りでは、channelの待機を張る（長く続く受信を使う製品だけ）。
         if (process.exitCode === 0 && profile.channels) process.exitCode = await runClaudeChannelWaiter(profile, event, write);
         break;
@@ -66,7 +73,8 @@ export async function runClaudeHookMain(profile: ProductProfile, root: string = 
     }
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : "CLAUDE_PARENT_HOOK_FAILED"}\n`);
-    process.exitCode = 2;
+    // PostToolUse exit 2 is a resume signal, not a safe admission refusal.
+    process.exitCode = profile.delivery_admission ? 1 : 2;
   }
 }
 
@@ -78,6 +86,18 @@ export async function runClaudeHookMain(profile: ProductProfile, root: string = 
 export async function runCursorHookMain(profile: ProductProfile, root: string | readonly string[] = cursorHookRoot(profile)): Promise<void> {
   try {
     const input = await readStdin();
+    if (profile.delivery_admission) {
+      const roots = typeof root === "string" ? [root] : [...new Set(root)];
+      if (roots.length !== 1 || profile.channels)
+        throw new DeliveryAdmissionError("DELIVERY_ADMISSION_UNSUPPORTED", "複数scope/channelのCursor出力受付が未接続です");
+      let emitted = false;
+      const result = await handleCursorHook(profile, input.length ? input : "{}", roots[0], async value => {
+        await new Promise<void>((resolve, reject) => process.stdout.write(`${JSON.stringify(value)}\n`, error => error ? reject(error) : resolve()));
+        emitted = true;
+      });
+      if (!emitted) process.stdout.write(`${JSON.stringify(result)}\n`);
+      return;
+    }
     const result: Record<string, unknown> = {};
     for (const each of typeof root === "string" ? [root] : [...new Set(root)]) {
       const found = await handleCursorHook(profile, input.length > 0 ? input : "{}", each);
@@ -86,6 +106,7 @@ export async function runCursorHookMain(profile: ProductProfile, root: string | 
       }
     }
     if (profile.channels) {
+      if (profile.delivery_admission) throw new DeliveryAdmissionError("DELIVERY_ADMISSION_UNSUPPORTED", "channel入力の実行受付が未接続です");
       let event: unknown = null;
       try { event = JSON.parse(input); } catch { /* 単発配送と同じく、読めない入力には何も返さない */ }
       if (event !== null && typeof event === "object") {
@@ -104,7 +125,7 @@ export async function runCursorHookMain(profile: ProductProfile, root: string | 
 /** Cursor親の背景受信。 */
 export async function runCursorReceiveMain(profile: ProductProfile, argv: string[] = process.argv.slice(2), root: string | readonly string[] = cursorHookRoot(profile)): Promise<void> {
   try {
-    process.exitCode = await runCursorReceive(root, argv);
+    process.exitCode = await runCursorReceive(root, argv, undefined, undefined, profile);
   } catch (error) {
     process.stdout.write(JSON.stringify({ ok: false, code: "CURSOR_PARENT_RECEIVE_FAILED", message: error instanceof Error ? error.message : "cursor-parent-receive: operation failed" }) + "\n");
     process.exitCode = 1;

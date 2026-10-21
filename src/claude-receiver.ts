@@ -5,6 +5,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { z } from "zod";
 import { waitForFileState, writeJson0600 } from "./files.js";
+import { withDeliveryEffect } from "./delivery-effect.js";
+import { DeliveryAdmissionError } from "./delivery-effect.js";
 import { hookOwnerProcess, processIsRunning, readProcessIdentities, readProcessLineage, type RuntimeProcess } from "./process.js";
 import { ClaudeDeliveryError } from "./errors.js";
 import type { ProductProfile } from "./profile.js";
@@ -166,10 +168,12 @@ export async function submitClaudeParentAnswer(
   // 既定は、確かめる2個（受信hookと依頼元）だけを読む。`processes` を渡した時は、その一覧で確かめる。
   runtime: { processes?: () => RuntimeProcess[]; running?: (pid: number, startedIdentity: string) => boolean } = { running: processIsRunning },
 ): Promise<{ queued_submission_id: null }> {
+  parent = claudeParentSchema.parse(parent);
   const invocation = readInvocation(profile, parent);
   const dir = directory(parent);
   // 会話終了でも確定本文を失わない。終了判定より先に保存する。
-  writeJson0600(path.join(dir, "answer.json"), { delivery_id: deliveryId, text });
+  await withDeliveryEffect(profile, { vendor: "claude", stage: "queue", delivery_ids: [deliveryId], endpoint: parent },
+    () => writeJson0600(path.join(dir, "answer.json"), { delivery_id: deliveryId, text }));
   const emitted = () => {
     const file = path.join(dir, "emitted.json");
     if (!fs.existsSync(file)) return false;
@@ -211,7 +215,9 @@ export async function submitClaudeParentAnswer(
   return { queued_submission_id: null };
 }
 
-export async function runClaudeResultHook(profile: ProductProfile, input: unknown, emit: (text: string) => void | Promise<void>, root: string): Promise<0 | 2> {
+export async function runClaudeResultHook(profile: ProductProfile, input: unknown, emit: (text: string) => void | Promise<void>, root: string,
+  runtime: { identity?: (pid: number) => string | undefined; parentAlive?: (invocation: Invocation) => void;
+    resume?: (code: 2) => void | Promise<void> } = {}): Promise<0 | 2> {
   const event = z.object({ session_id: z.uuid(), tool_use_id: requestId }).parse(input);
   const parent: ClaudeParent = { kind: "claude", request_id: event.tool_use_id, session_id: event.session_id, hook_root: root };
   const invocation = readInvocation(profile, parent);
@@ -222,13 +228,15 @@ export async function runClaudeResultHook(profile: ProductProfile, input: unknow
     return 0;
   }
   const deliveryId = z.uuid().parse(JSON.parse(fs.readFileSync(binding, "utf8")).delivery_id);
-  const identity = processIdentity(process.pid);
+  if (profile.delivery_admission && !runtime.resume)
+    throw new DeliveryAdmissionError("DELIVERY_ADMISSION_UNSUPPORTED", "Claude再開信号の作用口が未接続です");
+  const identity = (runtime.identity ?? processIdentity)(process.pid);
   if (!identity) throw new ClaudeDeliveryError("CLAUDE_PARENT_HOOK_UNAVAILABLE", "受信hookのprocessを確認できません");
   writeJson0600(path.join(dir, "hook.json"), { pid: process.pid, started_identity: identity });
   try {
   const answer = await waitForFileState(dir, () => {
     if (fs.existsSync(path.join(dir, "closed.json"))) return null;
-    assertParentAlive(invocation);
+    (runtime.parentAlive ?? assertParentAlive)(invocation);
     const file = path.join(dir, "answer.json");
     if (!fs.existsSync(file)) return undefined;
     const value = z.object({ delivery_id: z.uuid(), text: z.string() }).strict().parse(JSON.parse(fs.readFileSync(file, "utf8")));
@@ -237,9 +245,14 @@ export async function runClaudeResultHook(profile: ProductProfile, input: unknow
   });
   if (!answer) return 0;
   assertOpen(parent);
-  writeJson0600(path.join(dir, "sending.json"), { delivery_id: deliveryId });
-  await emit(answer.text);
+  await withDeliveryEffect(profile, { vendor: "claude", stage: "emit", delivery_ids: [deliveryId], endpoint: parent,
+    native_context: { session_id: event.session_id, tool_use_id: event.tool_use_id } }, async () => {
+    writeJson0600(path.join(dir, "sending.json"), { delivery_id: deliveryId });
+    await emit(answer.text);
+  });
   writeJson0600(path.join(dir, "emitted.json"), { delivery_id: deliveryId });
+  if (profile.delivery_admission) await withDeliveryEffect(profile, { vendor: "claude", stage: "wake", delivery_ids: [deliveryId], endpoint: parent,
+    native_context: { session_id: event.session_id, tool_use_id: event.tool_use_id } }, () => runtime.resume!(2));
   // Claudeが定めるasyncRewakeの再開信号。子の成功/失敗は本文のoutcomeで区別する。
   return 2;
   } catch (error) {

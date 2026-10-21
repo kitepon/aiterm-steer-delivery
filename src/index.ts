@@ -2,6 +2,7 @@
 // 親AIが作業中ならそのturnへ差し込み、idleなら同じ会話へ普通に届ける。受信方式は親ごとに公式の仕組みを使う。
 export * from "./profile.js";
 export * from "./errors.js";
+export { withDeliveryEffect, DeliveryAdmissionError, DELIVERY_ADMISSION_CONTRACT, type DeliveryEffect } from "./delivery-effect.js";
 export { writeJson0600, writeHookJson, waitForFileState, withoutBom } from "./files.js";
 export { readRuntimeProcesses, readProcessIdentities, readProcessLineage, processExists, processIsRunning, parsePosixProcessTable, hookOwnerProcess, type RuntimeProcess, type NativeProcessIdentity } from "./process.js";
 export { resolveWindowsPowerShell7, quotePowerShell, windowsPowerShellSync, windowsStartProcessArgumentList } from "./windows.js";

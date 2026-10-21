@@ -9,6 +9,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { codexHookDirectory, type ProductProfile } from "./profile.js";
+import { withDeliveryEffect } from "./delivery-effect.js";
 import { withCodexReceiver, type CodexParent, type CodexReceiverRuntime } from "./codex-receiver.js";
 import { writeHookJson } from "./files.js";
 import { liveNodeExecutable } from "./setup-node.js";
@@ -171,6 +172,7 @@ export function readCodexWakeResult(profile: ProductProfile, deliveryId: string,
  * 起こすのは、アプリの会話（sourceがvscode）で、最後の番が普通に終わっている（または番が1つも無い）時だけ。
  */
 export async function wakeCodexParentIfAsleep(profile: ProductProfile, parent: CodexParent, deliveryId: string, options: CodexWakeOptions = {}): Promise<CodexWakeResult> {
+  parent = { ...parent };
   const sleep = options.sleep ?? ((ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms)));
   const directory = options.directory ?? codexWakeDirectory(profile);
   const result: CodexWakeResult = { delivery_id: z.uuid().parse(deliveryId), thread_id: z.uuid().parse(parent.thread_id),
@@ -207,8 +209,10 @@ export async function wakeCodexParentIfAsleep(profile: ProductProfile, parent: C
     let recent = false;
     try { recent = Date.now() - fs.statSync(stamp).mtimeMs < (options.reopen_guard_ms ?? 30_000); } catch { /* まだ誰も開いていない */ }
     if (!recent) {
-      writeHookJson(stamp, { thread_id: parent.thread_id, delivery_id: deliveryId });
-      const opened = open(codexThreadUrl(parent.thread_id));
+      const opened = await withDeliveryEffect(profile, { vendor: "codex", stage: "wake", delivery_ids: [deliveryId], endpoint: parent }, () => {
+        writeHookJson(stamp, { thread_id: parent.thread_id, delivery_id: deliveryId });
+        return open(codexThreadUrl(parent.thread_id));
+      });
       if (!opened.ok) { result.outcome = "open_failed"; if (opened.detail) result.detail = opened.detail; return; }
     }
     result.opened_at = new Date().toISOString();
@@ -236,8 +240,9 @@ export const CODEX_WAKE_PAYLOAD_ENV = "AITERM_STEER_CODEX_WAKE_PAYLOAD";
 
 /** 見張りのprocessへ渡す、関数を含まない製品の識別情報。 */
 export function serializeWakeProfile(profile: ProductProfile): Record<string, unknown> {
-  const { state_root, config_root, channels: _channels, ...rest } = profile;
-  return { ...rest, dispatch_tools: [...profile.dispatch_tools], state_root: state_root(), config_root: config_root() };
+  const { state_root, config_root, channels: _channels, delivery_admission, ...rest } = profile;
+  return { ...rest, dispatch_tools: [...profile.dispatch_tools], state_root: state_root(), config_root: config_root(),
+    ...(delivery_admission ? { delivery_admission: { required: true } } : {}) };
 }
 
 /**

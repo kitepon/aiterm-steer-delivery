@@ -1,5 +1,6 @@
 // 製品ごとに一度だけ作る識別情報。配送の仕組みは全製品で同じで、ここに置くのは名前と置き場だけ。
 import * as path from "node:path";
+import type { DeliveryEffect } from "./delivery-effect.js";
 
 export interface ProductProfile {
   /** 製品ID。stateのschema名やhookの見分けに使う（例: "aiterm"）。 */
@@ -32,6 +33,9 @@ export interface ProductProfile {
    * 省略すると、期限では親を起こさずに待機を終える（次のturn終了で張り直す）。
    */
   channels?: { claude_expiry_notice?: string };
+  /** Product-owned execution admission. A serialized required marker without
+   * its process-local resolver refuses input; it never falls back to legacy. */
+  delivery_admission?: { required: true; run?<T>(effect: DeliveryEffect, action: () => Promise<T>): Promise<T> };
 }
 
 export function codexHookDirectory(profile: ProductProfile): string {

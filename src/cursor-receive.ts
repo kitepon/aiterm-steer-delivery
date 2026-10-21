@@ -6,6 +6,8 @@ import * as path from "node:path";
 import { receiveCursorAnswer, type CursorReceiveReader } from "./cursor-receiver.js";
 import { windowsStartProcessArgumentList } from "./windows.js";
 import { liveNodeExecutable } from "./setup-node.js";
+import type { ProductProfile } from "./profile.js";
+import { withDeliveryEffect } from "./delivery-effect.js";
 
 export interface WaitProcess {
   executable: string;
@@ -83,7 +85,9 @@ export async function runCursorReceive(
   argv: string[],
   output: ((value: unknown) => void) | ReceiveOutput = stdoutOutput(),
   usage = "usage: cursor-parent-receive --delivery <uuid>",
+  profile?: ProductProfile,
 ): Promise<number> {
+  argv = [...argv];
   const reader = typeof output === "function" ? undefined : output;
   const emit = async (value: unknown) => { if (typeof output === "function") output(value); else await output.emit(value); };
   try {
@@ -105,7 +109,10 @@ export async function runCursorReceive(
       await emit({ delivery_id: argv[1], outcome: "delivered_by_hook" });
       return 0;
     }
-    await emit({ delivery_id: argv[1], outcome: "delivered", text: result.text });
+    const deliver = () => emit({ delivery_id: argv[1], outcome: "delivered", text: result.text });
+    if (profile) await withDeliveryEffect(profile, { vendor: "cursor", stage: "emit", delivery_ids: [argv[1]],
+      endpoint: { kind: "cursor", hook_root: root } }, deliver);
+    else await deliver();
     return 0;
   } finally {
     reader?.close();
