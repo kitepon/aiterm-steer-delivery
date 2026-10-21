@@ -212,6 +212,8 @@ test('native entry hook arguments survive Claude and Cursor shell command genera
   const a = JSON.parse(readFileSync(claude)).hooks.PreToolUse[0].hooks[0].command;
   const b = JSON.parse(readFileSync(cursor)).hooks.afterMCPExecution[0].command;
   assert.ok(a.includes("'--execution-interrupt'")); assert.ok(a.includes("'--mode' 'claude-hook'"));
-  assert.ok(a.includes("'--state-root' '/a b/o'\"'\"'neil'")); assert.ok(b.includes("'--mode' 'cursor-hook'"));
+  const stateRoot = process.platform === "win32" ? "'/a b/o''neil'" : "'/a b/o'\"'\"'neil'";
+  assert.ok(a.includes("'--state-root' " + stateRoot)); assert.ok(b.includes("'--state-root' " + stateRoot));
+  assert.ok(b.includes("'--mode' 'cursor-hook'"));
   assert.ok(b.includes("'--steer-provider' '/a b/provider.js'"));
 });
