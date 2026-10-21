@@ -7,7 +7,7 @@ import { SetupError } from "./errors.js";
 import type { ProductProfile } from "./profile.js";
 
 /** hookを起動するNodeと、製品が同梱するhook入口の絶対path。 */
-export type HookRuntime = { command: string; script: string };
+export type HookRuntime = { command: string; script: string; args?: readonly string[] };
 const record = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 /** 引数の末尾が製品のhook入口と同じファイル名か。path区切りまで見るので、名前の一部だけ重なる他製品を拾わない。 */
 function endsWithFile(value: string, file: string): boolean {
@@ -27,7 +27,7 @@ function shellQuote(value: string, platform: NodeJS.Platform = process.platform)
  *   `$LASTEXITCODE`とは書かない。Grokが`$名前`を環境変数として読み、未設定としてhookを動かさない。
  */
 export function claudeParentHookCommand(hook: HookRuntime, platform: NodeJS.Platform = process.platform): { command: string; shell?: "powershell" } {
-  const words = `${shellQuote(hook.command, platform)} ${shellQuote(hook.script, platform)}`;
+  const words = [hook.command, hook.script, ...(hook.args ?? [])].map(value => shellQuote(value, platform)).join(" ");
   if (platform === "win32") return { command: `& ${words}; exit (Get-Variable LASTEXITCODE -ValueOnly)`, shell: "powershell" };
   return { command: `exec ${words}` };
 }
@@ -163,7 +163,7 @@ export function removeClaudeParentHooks(profile: ProductProfile, file: string): 
 }
 
 export function cursorParentHookCommand(hook: HookRuntime): string {
-  const command = `${shellQuote(hook.command)} ${shellQuote(hook.script)}`;
+  const command = [hook.command, hook.script, ...(hook.args ?? [])].map(value => shellQuote(value)).join(" ");
   return process.platform === "win32" ? `& ${command}` : command;
 }
 

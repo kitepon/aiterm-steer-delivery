@@ -202,3 +202,16 @@ test('0.4.1までの登録へsetupをかけ直すと、SessionStartだけが足�
   assert.equal(removeClaudeParentHooks(peer, file), 'removed');
   assert.deepEqual(JSON.parse(readFileSync(file, 'utf8')).hooks.SessionStart, [user]);
 });
+
+test('native entry hook arguments survive Claude and Cursor shell command generation and config merge', t => {
+  const root = fresh(t), entry = '/a b/execution-native-server.js';
+  const native = { ...aiterm, hooks: { claude: 'execution-native-server.js', cursor: 'execution-native-server.js', codex: 'execution-native-server.js' } };
+  const hook = { command: '/usr/bin/node', script: entry, args: ['--execution-interrupt', '--state-root', "/a b/o'neil", '--socket', '/a b/claude.sock', '--steer-provider', '/a b/provider.js', '--mode', 'claude-hook'] };
+  const claude = join(root, 'claude.json'), cursor = join(root, 'cursor.json');
+  mergeClaudeParentHooks(native, claude, hook); mergeCursorParentHooks(native, cursor, { ...hook, args: [...hook.args.slice(0,-1), 'cursor-hook'] });
+  const a = JSON.parse(readFileSync(claude)).hooks.PreToolUse[0].hooks[0].command;
+  const b = JSON.parse(readFileSync(cursor)).hooks.afterMCPExecution[0].command;
+  assert.ok(a.includes("'--execution-interrupt'")); assert.ok(a.includes("'--mode' 'claude-hook'"));
+  assert.ok(a.includes("'--state-root' '/a b/o'\"'\"'neil'")); assert.ok(b.includes("'--mode' 'cursor-hook'"));
+  assert.ok(b.includes("'--steer-provider' '/a b/provider.js'"));
+});

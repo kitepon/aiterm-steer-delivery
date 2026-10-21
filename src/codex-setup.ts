@@ -167,6 +167,7 @@ function samePath(a: string, b: string): boolean {
 
 export type CodexSteerRuntime = {
   platform: string; directory: string; codex_home: string; node: string; hook: string;
+  hookCommand?: (node: string, hook: string, directory: string) => string;
   findBinary: () => string; processes: () => RuntimeProcess[];
   /** 製品が以前使っていた別方式の選択。新規の製品は持たない。binaryは旧方式が起動していたCodex。 */
   legacy: () => { enabled: boolean; binary?: string } | null; disableLegacy: () => Promise<CodexSteerResult>;
@@ -251,7 +252,8 @@ export async function configureCodexSteer(profile: ProductProfile, action: Codex
   const node = setupNodeExecutable(runtime.node);
   fs.accessSync(node, fs.constants.X_OK); fs.accessSync(runtime.hook, fs.constants.R_OK);
   const binary = runtime.findBinary();
-  const command = codexHookCommand(node, runtime.hook, runtime.directory, runtime.platform as NodeJS.Platform, runtime.powershell);
+  const command = runtime.hookCommand?.(node, runtime.hook, runtime.directory)
+    ?? codexHookCommand(node, runtime.hook, runtime.directory, runtime.platform as NodeJS.Platform, runtime.powershell);
   const changed = await applyCodexHookPlan(profile, planCodexParentHooks(file, command, previous?.command), runtime.codex_home, binary);
   // hook導入前から動いているCodexを再起動待ちとして記録する。今のDesktop、前回の登録、旧方式が起動したCodexを、
   // 引用符付きのコマンド行も含めて照合する（Windowsは区切りと大文字小文字を揃える）。

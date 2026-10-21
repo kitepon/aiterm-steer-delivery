@@ -14,7 +14,7 @@ export interface DeliveryEffect {
 export class DeliveryAdmissionError extends SteerDeliveryError {}
 export const DELIVERY_ADMISSION_CONTRACT = Object.freeze({
   schema: "steer.delivery-admission.v1", native_context: true, cursor_profile_parameter: true,
-  multi_delivery_emit: true, serialized_required: true, codex_hook_event: true,
+  multi_delivery_emit: true, serialized_required: true, codex_hook_event: true, native_hook_args: true,
 });
 export async function withDeliveryEffect<T>(profile: ProductProfile, input: DeliveryEffect,
   action: () => T | Promise<T>): Promise<T> {
