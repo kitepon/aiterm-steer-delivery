@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.5.1
+
+Claude Codeのhookが、送信前（PreToolUse）の記録が無い時に送信後（PostToolUse）で例外終了し、channelの待機が張られず返信が次のhookまで止まっていたのを直します。関数の名前・引数・返りの形、hookの登録、置き場の作りは変わりません。hookの置き場に記録ファイルが1つ増えます。
+
+- **起きていた事。** 2026-10-31、Macの全試験の負荷中に、Claude Codeの`call_send`のPreToolUse hook（登録timeout 15秒、全processの一覧を取る）が記録（`request.json`）を残さないまま道具が進んだ。PostToolUse hookは`CLAUDE_PARENT_HOOK_UNAVAILABLE`で例外終了し、channelの待機（`runClaudeChannelWaiter`）に進まなかった。その間にchannelへ入った返信2通は、次のhookが走るまで会話へ出なかった。
+- **PostToolUseは、PreToolUseの記録が無ければ「配送の依頼が無い」として0で終え、channelの待機へ進む。** 記録があって壊れている時は従来どおり断る。
+- **hookの実行記録を`<hook root>/hook-events.log`へ1行JSONで残す。** event名・会話ID・tool_use_id・所要ms・終了code・失敗の符号だけで、本文・引数・stderrの文は書かない。1MBを超えたら前の世代を1つ残して入れ替える。記録の失敗でhookの結果は変わらない。
+- **POSIXの先祖の読み（`readProcessLineage`）は、全processの一覧でなく1個ずつ親方向へ最大8段たどる。** 読めない時だけ全一覧へ戻す。返す行の形と`hookOwnerProcess`の判定は同じ。
+
 ## 0.5.0
 
 - Optional native delivery admission passes existing request/parent references through queue, dequeue, emit and wake hooks without creating a second queue or resending input.

@@ -184,3 +184,16 @@ test('誤りで返す時も、配送を結んだ置き場と、他の物には�
   assert.deepEqual(readdirSync(other.dir), ['request.json']);
   assert.deepEqual(readdirSync(root).sort(), ['someone-else', 'toolu_bound', 'toolu_other_client']);
 });
+
+// 2026-10-31: Macの負荷中にPreToolUseの記録が1回欠け、PostToolUseがここで例外終了してchannelの待機が張られず、返信が次のhookまで止まった。
+test('PreToolUseの記録が無いPostToolUseは、配送無しとして0で終える（壊れた記録は従来どおり断る）', async t => {
+  const root = fresh(t);
+  const input = { session_id: randomUUID(), tool_use_id: 'toolu_no_request', hook_event_name: 'PostToolUse' };
+  assert.equal(await runClaudeResultHook(profile, input, () => {}, root), 0);
+  assert.equal(existsSync(join(root, input.tool_use_id)), false);
+  const broken = join(root, 'toolu_broken');
+  mkdirSync(broken, { recursive: true });
+  writeFileSync(join(broken, 'request.json'), '{');
+  await assert.rejects(runClaudeResultHook(profile, { ...input, tool_use_id: 'toolu_broken' }, () => {}, root),
+    error => error.delivery_code === 'CLAUDE_PARENT_HOOK_UNAVAILABLE');
+});

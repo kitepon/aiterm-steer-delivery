@@ -50,6 +50,8 @@ test('pidの有無はprocessを起こさずに読む。本人かどうかは、�
 test('先祖をたどる口は、全processの一覧と同じ持ち主を返す', () => {
   const table = readRuntimeProcesses();
   const lineage = readProcessLineage(process.pid);
+  assert.equal(lineage[0]?.pid, process.pid, '先頭は聞いたprocess');
+  assert.ok(lineage.length <= 8, '既定の深さを超えない');
   assert.equal(lineage.find(row => row.pid === process.pid)?.started_identity, table.find(row => row.pid === process.pid).started_identity);
   const parent = table.find(row => row.pid === process.ppid);
   if (parent) assert.equal(lineage.find(row => row.pid === process.ppid)?.started_identity, parent.started_identity, '親の開始時刻も同じ');

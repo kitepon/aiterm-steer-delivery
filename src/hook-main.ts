@@ -1,5 +1,6 @@
 // 製品のhook入口から呼ぶ本体。入口ファイルは「import して呼ぶだけ」にし、hook commandのpathは製品が持つ。
 import * as fs from "node:fs";
+import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { claudeHookRoot, cursorHookRoot, type ProductProfile } from "./profile.js";
 import { runCodexResultHook } from "./codex-hooks.js";
@@ -36,15 +37,18 @@ export async function runCodexHookMain(profile: ProductProfile, directory: strin
  * 失敗の2を返すと、GrokはStopを「止めずに続ける」、PreToolUseを「拒否」と読む。見分けは、Grokだけが入力へ入れる`hookEventName`。
  */
 export async function runClaudeHookMain(profile: ProductProfile, root: string = claudeHookRoot(profile)): Promise<void> {
+  const started = Date.now();
+  let event: unknown = null, failure: unknown, foreign = false;
   try {
-    const event = JSON.parse(await readStdin());
-    if (event !== null && typeof event === "object" && typeof event.hookEventName === "string") return;
+    event = JSON.parse(await readStdin());
+    // Grokの起動では何も記録しない（共有のsettingsのhookが動いただけ）。
+    if (event !== null && typeof event === "object" && typeof (event as { hookEventName?: unknown }).hookEventName === "string") { foreign = true; return; }
     if (profile.delivery_admission && profile.channels)
       throw new DeliveryAdmissionError("DELIVERY_ADMISSION_UNSUPPORTED", "channel入力の実行受付が未接続です");
     const write = (text: string) => new Promise<void>((resolve, reject) => {
       process.stderr.write(text, error => error ? reject(error) : resolve());
     });
-    switch (event.hook_event_name) {
+    switch ((event as { hook_event_name?: unknown } | null)?.hook_event_name) {
       case "PreToolUse": prepareClaudeHookRequest(event, root); break;
       case "PostToolUse":
         if (profile.delivery_admission) {
@@ -72,10 +76,37 @@ export async function runClaudeHookMain(profile: ProductProfile, root: string = 
       default: throw new Error("CLAUDE_PARENT_HOOK_EVENT_INVALID: 未対応のhookです");
     }
   } catch (error) {
+    failure = error;
     process.stderr.write(`${error instanceof Error ? error.message : "CLAUDE_PARENT_HOOK_FAILED"}\n`);
     // PostToolUse exit 2 is a resume signal, not a safe admission refusal.
     process.exitCode = profile.delivery_admission ? 1 : 2;
+  } finally {
+    if (!foreign) recordClaudeHookEvent(root, event, started, failure);
   }
+}
+
+/**
+ * hookの実行記録を`<hook root>/hook-events.log`へ1行JSONで足す。event名・会話ID・tool_use_id・所要・終了code・失敗の符号だけで、
+ * 本文・引数・stderrの文は書かない。PreToolUseの記録が欠けた時に、hookが走ったか・timeoutに近かったかを後から確かめる為。
+ * 記録の失敗でhookの結果を変えない。
+ */
+function recordClaudeHookEvent(root: string, event: unknown, started: number, failure: unknown): void {
+  try {
+    const input = event !== null && typeof event === "object" ? event as Record<string, unknown> : {};
+    const safe = (value: unknown, pattern: RegExp) => typeof value === "string" && pattern.test(value) ? value : null;
+    const message = failure instanceof Error ? failure.message : failure === undefined ? "" : "CLAUDE_PARENT_HOOK_FAILED";
+    const code = (failure as { delivery_code?: unknown } | undefined)?.delivery_code;
+    fs.mkdirSync(root, { recursive: true, mode: 0o700 });
+    const file = path.join(root, "hook-events.log");
+    // shortcut: 1MBを超えたら前の世代を1つだけ残して入れ替える, 長い保全が要る時に世代管理へ上げる
+    try { if (fs.statSync(file).size > 1_000_000) fs.renameSync(file, `${file}.1`); } catch { /* まだ無い */ }
+    fs.appendFileSync(file, JSON.stringify({
+      at: new Date(started).toISOString(), event: safe(input.hook_event_name, /^[A-Za-z]{1,32}$/u),
+      session_id: safe(input.session_id, /^[0-9a-fA-F-]{36}$/u), tool_use_id: safe(input.tool_use_id, /^[A-Za-z0-9_-]{1,160}$/u),
+      ms: Date.now() - started, exit: process.exitCode ?? 0,
+      code: typeof code === "string" ? code : (failure === undefined ? null : (/^[A-Z][A-Z0-9_]*/u.exec(message)?.[0] ?? "FAILED")),
+    }) + "\n", { mode: 0o600 });
+  } catch { /* 記録の失敗でhookを止めない */ }
 }
 
 /**
