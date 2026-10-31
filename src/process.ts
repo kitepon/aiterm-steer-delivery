@@ -161,8 +161,8 @@ export function processIsRunning(pid: number, startedIdentity: string): boolean 
  * 今までどおり全processの一覧を返す。
  */
 export function readProcessLineage(pid: number, depth = 8): RuntimeProcess[] {
-  if (!isWin) return readRuntimeProcesses();
   if (!Number.isSafeInteger(pid) || pid <= 0 || !Number.isSafeInteger(depth) || depth <= 0) throw new ProcessTableError("process照会のpidが不正です");
+  if (!isWin) return readPosixLineage(pid, depth);
   let rows: unknown;
   try {
     rows = windowsJson([
@@ -193,6 +193,26 @@ export function readProcessLineage(pid: number, depth = 8): RuntimeProcess[] {
       argv_digest: createHash("sha256").update(row.executable).digest("hex"),
     };
   });
+}
+
+/**
+ * POSIXで先祖を1個ずつたどる。全processの一覧（`ps -axww`、全commandを含む）は混んだMacで秒単位かかり、Claude CodeのPreToolUse
+ * hookの15秒に食い込む（2026-10-31）。1個読むpsを最大depth回で済ませ、読めない時だけ全一覧へ戻す。
+ */
+function readPosixLineage(pid: number, depth: number): RuntimeProcess[] {
+  const rows: RuntimeProcess[] = [];
+  for (let id = pid; rows.length < depth && id > 0;) {
+    const result = spawnSync("/bin/ps", ["-o", "pid=,ppid=,pgid=,stat=,lstart=,time=,command=", "-p", String(id)], {
+      encoding: "utf8", env: { ...process.env, LC_ALL: "C" }, timeout: 10000, maxBuffer: 16 * 1024 * 1024,
+    });
+    if (result.error || result.status !== 0) break;
+    let parsed: RuntimeProcess[];
+    try { parsed = parsePosixProcessTable(result.stdout); } catch { break; }
+    if (parsed.length !== 1 || parsed[0].pid !== id) break;
+    rows.push(parsed[0]);
+    id = parsed[0].parent_pid;
+  }
+  return rows.length > 0 && rows[0].pid === pid ? rows : readRuntimeProcesses();
 }
 
 export function readRuntimeProcesses(): RuntimeProcess[] {

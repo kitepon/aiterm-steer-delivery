@@ -220,8 +220,11 @@ export async function runClaudeResultHook(profile: ProductProfile, input: unknow
     resume?: (code: 2) => void | Promise<void> } = {}): Promise<0 | 2> {
   const event = z.object({ session_id: z.uuid(), tool_use_id: requestId }).parse(input);
   const parent: ClaudeParent = { kind: "claude", request_id: event.tool_use_id, session_id: event.session_id, hook_root: root };
-  const invocation = readInvocation(profile, parent);
   const dir = directory(parent);
+  // PreToolUseの記録が無い（hookがtimeoutし、Claude Codeが道具を先へ進めた時など）。配送の依頼は結べていないので配送無しとして0で終え、
+  // 呼ぶ側はchannelの待機へ進む（2026-10-31、Macの負荷中に記録が1回欠け、ここで例外終了して待機が張られず返信が次のhookまで止まった）。
+  if (!fs.existsSync(path.join(dir, "request.json"))) return 0;
+  const invocation = readInvocation(profile, parent);
   const binding = path.join(dir, "delivery.json");
   if (!fs.existsSync(binding)) {
     fs.rmSync(dir, { recursive: true });

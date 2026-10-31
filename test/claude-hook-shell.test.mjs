@@ -173,3 +173,25 @@ test('process表を読む間にhookが本文を出し終えて終わっても、
   await assert.rejects(submitClaudeParentAnswer(profile, orphan, last, '届かない本文', { processes: () => [self] }),
     error => error.delivery_code === 'CLAUDE_PARENT_PROCESS_CLOSED');
 });
+
+// 2026-10-31: hookが走ったか・timeoutに近かったかを後から確かめる記録が無かった。本文・引数は書かない。
+test('hookは実行記録を1行JSONで残し、PreToolUseの記録が無いPostToolUseでも0で終える', t => {
+  const dir = fresh(t);
+  const script = entry(dir, 'demo-claude-hook.mjs');
+  const logFile = join(dir, 'state', 'claude-parent-hooks', 'hook-events.log');
+  const rows = () => readFileSync(logFile, 'utf8').trim().split('\n').map(line => JSON.parse(line));
+  const session = randomUUID();
+  const run = runThroughShell(claudeParentHookCommand({ command: process.execPath, script }).command,
+    JSON.stringify({ hook_event_name: 'PostToolUse', session_id: session, tool_use_id: 'toolu_missing', tool_input: { text: '本文は記録しない' } }));
+  assert.equal(run.status, 0, run.stderr);
+  assert.equal(rows().length, 1);
+  assert.deepEqual([rows()[0].event, rows()[0].session_id, rows()[0].tool_use_id, rows()[0].exit, rows()[0].code], ['PostToolUse', session, 'toolu_missing', 0, null]);
+  assert.equal(typeof rows()[0].ms, 'number');
+  assert.equal(readFileSync(logFile, 'utf8').includes('本文は記録しない'), false);
+  assert.equal(existsSync(join(dir, 'state', 'claude-parent-hooks', 'toolu_missing')), false);
+  // 失敗した時は、終了codeと失敗の符号だけを残す。
+  const bad = runThroughShell(claudeParentHookCommand({ command: process.execPath, script }).command, JSON.stringify({ hook_event_name: 'Nope' }));
+  assert.equal(bad.status, 2, bad.stderr);
+  const last = rows().at(-1);
+  assert.deepEqual([last.event, last.exit, last.code], ['Nope', 2, 'CLAUDE_PARENT_HOOK_EVENT_INVALID']);
+});
