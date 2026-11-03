@@ -1,6 +1,6 @@
 # 正式版source索引
 
-source snapshot HEAD `6734ee86a77928640877415fb83981475f7cb142`。実fileのSHA/関数位置/静的call解決。callbackや外部consumer全経路の証明ではない。
+source snapshot HEAD `ce8fea83acae3894042aa1a4886569a2d373510e`。実fileのSHA/関数位置/静的call解決。callbackや外部consumer全経路の証明ではない。
 
 ## src/aiterm-provider.ts
 
@@ -578,32 +578,33 @@ SHA256 `c917bc4dcb5ce8da644fdda75975d4007f26ccb432dd78a6a8a354da004a90ea`。4753
 
 ## src/process.ts
 
-SHA256 `888e0e7db05c3f0477cca2ab421935c37e6042e45c91c4cd8d12050447e09254`。14781 bytes。
+SHA256 `36e79a4bc9d29b92b92d87d5ff3dea722d4accc14f44930324fb6c4252b148ab`。15641 bytes。
 
 | 関数 | 行 |
 | --- | ---: |
-| [processIdentity](../../src/process.ts#L26) | 26 |
-| [parseCpuTime](../../src/process.ts#L33) | 33 |
-| [parsePosixProcessTable](../../src/process.ts#L40) | 40 |
-| [<callback>](../../src/process.ts#L41) | 41 |
-| [<callback>](../../src/process.ts#L41) | 41 |
-| [executableName](../../src/process.ts#L57) | 57 |
-| [hookOwnerProcess](../../src/process.ts#L66) | 66 |
-| [<callback>](../../src/process.ts#L67) | 67 |
-| [processExists](../../src/process.ts#L74) | 74 |
-| [windowsJson](../../src/process.ts#L81) | 81 |
-| [assertPids](../../src/process.ts#L90) | 90 |
-| [<callback>](../../src/process.ts#L92) | 92 |
-| [readProcessIdentities](../../src/process.ts#L113) | 113 |
-| [<callback>](../../src/process.ts#L126) | 126 |
-| [<callback>](../../src/process.ts#L126) | 126 |
-| [<callback>](../../src/process.ts#L144) | 144 |
-| [processIsRunning](../../src/process.ts#L154) | 154 |
-| [readProcessLineage](../../src/process.ts#L163) | 163 |
-| [<callback>](../../src/process.ts#L186) | 186 |
-| [readPosixLineage](../../src/process.ts#L202) | 202 |
-| [readRuntimeProcesses](../../src/process.ts#L218) | 218 |
-| [<callback>](../../src/process.ts#L240) | 240 |
+| [processReadError](../../src/process.ts#L11) | 11 |
+| [processIdentity](../../src/process.ts#L36) | 36 |
+| [parseCpuTime](../../src/process.ts#L43) | 43 |
+| [parsePosixProcessTable](../../src/process.ts#L50) | 50 |
+| [<callback>](../../src/process.ts#L51) | 51 |
+| [<callback>](../../src/process.ts#L51) | 51 |
+| [executableName](../../src/process.ts#L67) | 67 |
+| [hookOwnerProcess](../../src/process.ts#L76) | 76 |
+| [<callback>](../../src/process.ts#L77) | 77 |
+| [processExists](../../src/process.ts#L84) | 84 |
+| [windowsJson](../../src/process.ts#L91) | 91 |
+| [assertPids](../../src/process.ts#L100) | 100 |
+| [<callback>](../../src/process.ts#L102) | 102 |
+| [readProcessIdentities](../../src/process.ts#L123) | 123 |
+| [<callback>](../../src/process.ts#L136) | 136 |
+| [<callback>](../../src/process.ts#L136) | 136 |
+| [<callback>](../../src/process.ts#L154) | 154 |
+| [processIsRunning](../../src/process.ts#L164) | 164 |
+| [readProcessLineage](../../src/process.ts#L173) | 173 |
+| [<callback>](../../src/process.ts#L196) | 196 |
+| [readPosixLineage](../../src/process.ts#L212) | 212 |
+| [readRuntimeProcesses](../../src/process.ts#L228) | 228 |
+| [<callback>](../../src/process.ts#L250) | 250 |
 
 ## src/profile.ts
 

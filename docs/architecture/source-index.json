@@ -1,7 +1,7 @@
 {
   "product": "steer",
-  "head": "6734ee86a77928640877415fb83981475f7cb142",
-  "generatedAt": "2026-11-03T09:13:56.519Z",
+  "head": "ce8fea83acae3894042aa1a4886569a2d373510e",
+  "generatedAt": "2026-11-03T09:19:40.646Z",
   "limitations": [
     "Static TypeScript declarations and resolved call signatures only; callback dispatch, filesystem protocols, dynamic imports and cross-product runtime binding require manual review.",
     "A source inventory is not a claim that every implementation was manually reviewed."
@@ -2761,7 +2761,7 @@
           "declarations": [
             {
               "file": "src/process.ts",
-              "line": 218
+              "line": 228
             }
           ]
         },
@@ -2770,7 +2770,7 @@
           "declarations": [
             {
               "file": "src/process.ts",
-              "line": 113
+              "line": 123
             }
           ]
         },
@@ -2779,7 +2779,7 @@
           "declarations": [
             {
               "file": "src/process.ts",
-              "line": 163
+              "line": 173
             }
           ]
         },
@@ -2788,7 +2788,7 @@
           "declarations": [
             {
               "file": "src/process.ts",
-              "line": 74
+              "line": 84
             }
           ]
         },
@@ -2797,7 +2797,7 @@
           "declarations": [
             {
               "file": "src/process.ts",
-              "line": 154
+              "line": 164
             }
           ]
         },
@@ -2806,7 +2806,7 @@
           "declarations": [
             {
               "file": "src/process.ts",
-              "line": 40
+              "line": 50
             }
           ]
         },
@@ -2815,7 +2815,7 @@
           "declarations": [
             {
               "file": "src/process.ts",
-              "line": 66
+              "line": 76
             }
           ]
         },
@@ -2824,7 +2824,7 @@
           "declarations": [
             {
               "file": "src/process.ts",
-              "line": 18
+              "line": 28
             }
           ]
         },
@@ -2833,7 +2833,7 @@
           "declarations": [
             {
               "file": "src/process.ts",
-              "line": 11
+              "line": 21
             }
           ]
         },
@@ -4272,9 +4272,9 @@
     },
     {
       "file": "src/process.ts",
-      "lines": 254,
-      "bytes": 14781,
-      "sha256": "888e0e7db05c3f0477cca2ab421935c37e6042e45c91c4cd8d12050447e09254",
+      "lines": 264,
+      "bytes": 15641,
+      "sha256": "36e79a4bc9d29b92b92d87d5ff3dea722d4accc14f44930324fb6c4252b148ab",
       "imports": [
         {
           "module": "node:child_process",
@@ -4301,7 +4301,7 @@
           "declarations": [
             {
               "file": "src/process.ts",
-              "line": 26
+              "line": 36
             }
           ]
         },
@@ -4310,7 +4310,7 @@
           "declarations": [
             {
               "file": "src/process.ts",
-              "line": 33
+              "line": 43
             }
           ]
         },
@@ -4319,7 +4319,7 @@
           "declarations": [
             {
               "file": "src/process.ts",
-              "line": 40
+              "line": 50
             }
           ]
         },
@@ -4328,7 +4328,7 @@
           "declarations": [
             {
               "file": "src/process.ts",
-              "line": 66
+              "line": 76
             }
           ]
         },
@@ -4337,7 +4337,7 @@
           "declarations": [
             {
               "file": "src/process.ts",
-              "line": 74
+              "line": 84
             }
           ]
         },
@@ -4346,7 +4346,7 @@
           "declarations": [
             {
               "file": "src/process.ts",
-              "line": 113
+              "line": 123
             }
           ]
         },
@@ -4355,7 +4355,7 @@
           "declarations": [
             {
               "file": "src/process.ts",
-              "line": 154
+              "line": 164
             }
           ]
         },
@@ -4364,7 +4364,7 @@
           "declarations": [
             {
               "file": "src/process.ts",
-              "line": 163
+              "line": 173
             }
           ]
         },
@@ -4373,7 +4373,7 @@
           "declarations": [
             {
               "file": "src/process.ts",
-              "line": 218
+              "line": 228
             }
           ]
         },
@@ -4382,7 +4382,7 @@
           "declarations": [
             {
               "file": "src/process.ts",
-              "line": 11
+              "line": 21
             }
           ]
         },
@@ -4391,7 +4391,7 @@
           "declarations": [
             {
               "file": "src/process.ts",
-              "line": 18
+              "line": 28
             }
           ]
         }
@@ -5231,7 +5231,7 @@
           "file": "src/channel.ts",
           "line": 49,
           "expression": "readProcessIdentities",
-          "target": "src/process.ts#readProcessIdentities@113:1"
+          "target": "src/process.ts#readProcessIdentities@123:1"
         }
       ]
     },
@@ -5809,7 +5809,7 @@
           "file": "src/channel.ts",
           "line": 152,
           "expression": "processIsRunning",
-          "target": "src/process.ts#processIsRunning@154:1"
+          "target": "src/process.ts#processIsRunning@164:1"
         },
         {
           "file": "src/channel.ts",
@@ -6386,7 +6386,7 @@
           "file": "src/channel.ts",
           "line": 263,
           "expression": "processIsRunning",
-          "target": "src/process.ts#processIsRunning@154:1"
+          "target": "src/process.ts#processIsRunning@164:1"
         },
         {
           "file": "src/channel.ts",
@@ -6494,13 +6494,13 @@
           "file": "src/channel.ts",
           "line": 281,
           "expression": "hookOwnerProcess",
-          "target": "src/process.ts#hookOwnerProcess@66:1"
+          "target": "src/process.ts#hookOwnerProcess@76:1"
         },
         {
           "file": "src/channel.ts",
           "line": 281,
           "expression": "readProcessLineage",
-          "target": "src/process.ts#readProcessLineage@163:1"
+          "target": "src/process.ts#readProcessLineage@173:1"
         }
       ]
     },
@@ -7611,7 +7611,7 @@
           "file": "src/claude-receiver.ts",
           "line": 27,
           "expression": "readProcessIdentities",
-          "target": "src/process.ts#readProcessIdentities@113:1"
+          "target": "src/process.ts#readProcessIdentities@123:1"
         }
       ]
     },
@@ -7759,13 +7759,13 @@
           "file": "src/claude-receiver.ts",
           "line": 48,
           "expression": "hookOwnerProcess",
-          "target": "src/process.ts#hookOwnerProcess@66:1"
+          "target": "src/process.ts#hookOwnerProcess@76:1"
         },
         {
           "file": "src/claude-receiver.ts",
           "line": 48,
           "expression": "readProcessLineage",
-          "target": "src/process.ts#readProcessLineage@163:1"
+          "target": "src/process.ts#readProcessLineage@173:1"
         },
         {
           "file": "src/claude-receiver.ts",
@@ -8274,7 +8274,7 @@
           "file": "src/claude-receiver.ts",
           "line": 161,
           "expression": "processIsRunning",
-          "target": "src/process.ts#processIsRunning@154:1"
+          "target": "src/process.ts#processIsRunning@164:1"
         },
         {
           "file": "src/claude-receiver.ts",
@@ -8570,7 +8570,7 @@
           "file": "src/claude-receiver.ts",
           "line": 195,
           "expression": "(runtime.running ?? processIsRunning)",
-          "target": "src/process.ts#processIsRunning@154:1"
+          "target": "src/process.ts#processIsRunning@164:1"
         }
       ]
     },
@@ -10930,7 +10930,7 @@
           "file": "src/codex-hook-state.ts",
           "line": 74,
           "expression": "processIsRunning",
-          "target": "src/process.ts#processIsRunning@154:1"
+          "target": "src/process.ts#processIsRunning@164:1"
         },
         {
           "file": "src/codex-hook-state.ts",
@@ -11108,7 +11108,7 @@
           "file": "src/codex-hook-state.ts",
           "line": 105,
           "expression": "readProcessLineage",
-          "target": "src/process.ts#readProcessLineage@163:1"
+          "target": "src/process.ts#readProcessLineage@173:1"
         },
         {
           "file": "src/codex-hook-state.ts",
@@ -11310,7 +11310,7 @@
           "file": "src/codex-hooks.ts",
           "line": 33,
           "expression": "readProcessIdentities",
-          "target": "src/process.ts#readProcessIdentities@113:1"
+          "target": "src/process.ts#readProcessIdentities@123:1"
         },
         {
           "file": "src/codex-hooks.ts",
@@ -19845,134 +19845,72 @@
       ]
     },
     {
-      "id": "src/process.ts#processIdentity@26:1",
+      "id": "src/process.ts#processReadError@11:1",
       "file": "src/process.ts",
-      "name": "processIdentity",
-      "line": 26,
-      "endLine": 31,
-      "owner": null,
-      "calls": []
-    },
-    {
-      "id": "src/process.ts#parseCpuTime@33:1",
-      "file": "src/process.ts",
-      "name": "parseCpuTime",
-      "line": 33,
-      "endLine": 38,
+      "name": "processReadError",
+      "line": 11,
+      "endLine": 19,
       "owner": null,
       "calls": [
         {
           "file": "src/process.ts",
-          "line": 34,
+          "line": 15,
+          "expression": "[\"ETIMEDOUT\", \"ENOBUFS\", \"EAGAIN\", \"ENOENT\", \"EACCES\", \"ENOMEM\", \"EMFILE\", \"ENFILE\", \"E2BIG\", \"EPERM\"].includes",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 17,
+          "expression": "Buffer.byteLength",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 17,
+          "expression": "Buffer.byteLength",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 18,
+          "expression": "ProcessTableError",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 18,
+          "expression": "JSON.stringify",
+          "target": null
+        }
+      ]
+    },
+    {
+      "id": "src/process.ts#processIdentity@36:1",
+      "file": "src/process.ts",
+      "name": "processIdentity",
+      "line": 36,
+      "endLine": 41,
+      "owner": null,
+      "calls": []
+    },
+    {
+      "id": "src/process.ts#parseCpuTime@43:1",
+      "file": "src/process.ts",
+      "name": "parseCpuTime",
+      "line": 43,
+      "endLine": 48,
+      "owner": null,
+      "calls": [
+        {
+          "file": "src/process.ts",
+          "line": 44,
           "expression": "/^(?:(\\d+)-)?(?:(\\d+):)?(\\d+):(\\d+(?:\\.\\d+)?)$/.exec",
           "target": null
         },
         {
           "file": "src/process.ts",
-          "line": 35,
+          "line": 45,
           "expression": "ProcessTableError",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 36,
-          "expression": "Number",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 36,
-          "expression": "Number",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 37,
-          "expression": "Number",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 37,
-          "expression": "Number",
-          "target": null
-        }
-      ]
-    },
-    {
-      "id": "src/process.ts#parsePosixProcessTable@40:1",
-      "file": "src/process.ts",
-      "name": "parsePosixProcessTable",
-      "line": 40,
-      "endLine": 52,
-      "owner": null,
-      "calls": [
-        {
-          "file": "src/process.ts",
-          "line": 41,
-          "expression": "text.split(\"\\n\").filter(line => line.trim()).map",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 41,
-          "expression": "text.split(\"\\n\").filter",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 41,
-          "expression": "text.split",
-          "target": null
-        }
-      ]
-    },
-    {
-      "id": "src/process.ts#<callback>@41:34",
-      "file": "src/process.ts",
-      "name": "<callback>",
-      "line": 41,
-      "endLine": 41,
-      "owner": "src/process.ts#parsePosixProcessTable@40:1",
-      "calls": [
-        {
-          "file": "src/process.ts",
-          "line": 41,
-          "expression": "line.trim",
-          "target": null
-        }
-      ]
-    },
-    {
-      "id": "src/process.ts#<callback>@41:59",
-      "file": "src/process.ts",
-      "name": "<callback>",
-      "line": 41,
-      "endLine": 51,
-      "owner": "src/process.ts#parsePosixProcessTable@40:1",
-      "calls": [
-        {
-          "file": "src/process.ts",
-          "line": 42,
-          "expression": "/^\\s*(\\d+)\\s+(\\d+)\\s+(\\d+)\\s+(\\S+)\\s+(\\S+\\s+\\S+\\s+\\d+\\s+\\S+\\s+\\d+)\\s+(\\S+)\\s+(.+)$/.exec",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 43,
-          "expression": "ProcessTableError",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 44,
-          "expression": "match[7].trim",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 46,
-          "expression": "Number",
           "target": null
         },
         {
@@ -19990,865 +19928,967 @@
         {
           "file": "src/process.ts",
           "line": 47,
-          "expression": "match[4].includes",
+          "expression": "Number",
           "target": null
         },
         {
           "file": "src/process.ts",
-          "line": 48,
-          "expression": "match[5].trim",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 48,
-          "expression": "parseCpuTime",
-          "target": "src/process.ts#parseCpuTime@33:1"
-        },
-        {
-          "file": "src/process.ts",
-          "line": 49,
-          "expression": "createHash(\"sha256\").update(command).digest",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 49,
-          "expression": "createHash(\"sha256\").update",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 49,
-          "expression": "createHash",
+          "line": 47,
+          "expression": "Number",
           "target": null
         }
       ]
     },
     {
-      "id": "src/process.ts#executableName@57:1",
+      "id": "src/process.ts#parsePosixProcessTable@50:1",
       "file": "src/process.ts",
-      "name": "executableName",
-      "line": 57,
-      "endLine": 60,
+      "name": "parsePosixProcessTable",
+      "line": 50,
+      "endLine": 62,
       "owner": null,
       "calls": [
         {
           "file": "src/process.ts",
-          "line": 58,
-          "expression": "row.command.startsWith",
+          "line": 51,
+          "expression": "text.split(\"\\n\").filter(line => line.trim()).map",
           "target": null
         },
         {
           "file": "src/process.ts",
-          "line": 58,
-          "expression": "row.command.slice(1).split",
+          "line": 51,
+          "expression": "text.split(\"\\n\").filter",
           "target": null
         },
         {
           "file": "src/process.ts",
-          "line": 58,
-          "expression": "row.command.slice",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 58,
-          "expression": "row.command.split",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 59,
-          "expression": "(source.split(/[\\\\/]/u).pop() ?? \"\").replace(/^-/u, \"\").replace(/\\.exe$/iu, \"\").toLowerCase",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 59,
-          "expression": "(source.split(/[\\\\/]/u).pop() ?? \"\").replace(/^-/u, \"\").replace",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 59,
-          "expression": "(source.split(/[\\\\/]/u).pop() ?? \"\").replace",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 59,
-          "expression": "source.split(/[\\\\/]/u).pop",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 59,
-          "expression": "source.split",
+          "line": 51,
+          "expression": "text.split",
           "target": null
         }
       ]
     },
     {
-      "id": "src/process.ts#hookOwnerProcess@66:1",
-      "file": "src/process.ts",
-      "name": "hookOwnerProcess",
-      "line": 66,
-      "endLine": 71,
-      "owner": null,
-      "calls": [
-        {
-          "file": "src/process.ts",
-          "line": 67,
-          "expression": "Map",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 67,
-          "expression": "rows.map",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 68,
-          "expression": "byPid.get",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 69,
-          "expression": "HOOK_SHELLS.has",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 69,
-          "expression": "executableName",
-          "target": "src/process.ts#executableName@57:1"
-        },
-        {
-          "file": "src/process.ts",
-          "line": 69,
-          "expression": "byPid.get",
-          "target": null
-        }
-      ]
-    },
-    {
-      "id": "src/process.ts#<callback>@67:34",
+      "id": "src/process.ts#<callback>@51:34",
       "file": "src/process.ts",
       "name": "<callback>",
-      "line": 67,
-      "endLine": 67,
-      "owner": "src/process.ts#hookOwnerProcess@66:1",
-      "calls": []
-    },
-    {
-      "id": "src/process.ts#processExists@74:1",
-      "file": "src/process.ts",
-      "name": "processExists",
-      "line": 74,
-      "endLine": 79,
-      "owner": null,
+      "line": 51,
+      "endLine": 51,
+      "owner": "src/process.ts#parsePosixProcessTable@50:1",
       "calls": [
         {
           "file": "src/process.ts",
-          "line": 76,
-          "expression": "Number.isSafeInteger",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 77,
-          "expression": "process.kill",
-          "target": null
-        }
-      ]
-    },
-    {
-      "id": "src/process.ts#windowsJson@81:1",
-      "file": "src/process.ts",
-      "name": "windowsJson",
-      "line": 81,
-      "endLine": 88,
-      "owner": null,
-      "calls": [
-        {
-          "file": "src/process.ts",
-          "line": 82,
-          "expression": "[\"$ErrorActionPreference='Stop'\", \"[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false)\", script].join",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 83,
-          "expression": "spawnSync",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 83,
-          "expression": "resolveWindowsPowerShell7",
-          "target": "src/windows.ts#resolveWindowsPowerShell7@24:1"
-        },
-        {
-          "file": "src/process.ts",
-          "line": 83,
-          "expression": "Buffer.from(source, \"utf16le\").toString",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 83,
-          "expression": "Buffer.from",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 86,
-          "expression": "ProcessTableError",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 87,
-          "expression": "JSON.parse",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 87,
-          "expression": "ProcessTableError",
-          "target": null
-        }
-      ]
-    },
-    {
-      "id": "src/process.ts#assertPids@90:1",
-      "file": "src/process.ts",
-      "name": "assertPids",
-      "line": 90,
-      "endLine": 94,
-      "owner": null,
-      "calls": [
-        {
-          "file": "src/process.ts",
-          "line": 91,
-          "expression": "Set",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 92,
-          "expression": "wanted.some",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 92,
-          "expression": "ProcessTableError",
-          "target": null
-        }
-      ]
-    },
-    {
-      "id": "src/process.ts#<callback>@92:19",
-      "file": "src/process.ts",
-      "name": "<callback>",
-      "line": 92,
-      "endLine": 92,
-      "owner": "src/process.ts#assertPids@90:1",
-      "calls": [
-        {
-          "file": "src/process.ts",
-          "line": 92,
-          "expression": "Number.isSafeInteger",
-          "target": null
-        }
-      ]
-    },
-    {
-      "id": "src/process.ts#readProcessIdentities@113:1",
-      "file": "src/process.ts",
-      "name": "readProcessIdentities",
-      "line": 113,
-      "endLine": 151,
-      "owner": null,
-      "calls": [
-        {
-          "file": "src/process.ts",
-          "line": 116,
-          "expression": "assertPids(pids).filter",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 116,
-          "expression": "assertPids",
-          "target": "src/process.ts#assertPids@90:1"
-        },
-        {
-          "file": "src/process.ts",
-          "line": 119,
-          "expression": "spawnSync",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 119,
-          "expression": "wanted.join",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 123,
-          "expression": "result.stdout.trim",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 124,
-          "expression": "ProcessTableError",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 126,
-          "expression": "result.stdout.split(\"\\n\").filter(line => line.trim()).map",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 126,
-          "expression": "result.stdout.split(\"\\n\").filter",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 126,
-          "expression": "result.stdout.split",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 132,
-          "expression": "windowsJson",
-          "target": "src/process.ts#windowsJson@81:1"
-        },
-        {
-          "file": "src/process.ts",
-          "line": 132,
-          "expression": "[\n    WINDOWS_STARTED,\n    \"$rows=@()\",\n    `foreach ($id in @(${wanted.join(\",\")})) {`,\n    \"  try { $p=[Diagnostics.Process]::GetProcessById($id) } catch [Arg",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 135,
-          "expression": "wanted.join",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 143,
-          "expression": "Array.isArray",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 143,
-          "expression": "ProcessTableError",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 144,
-          "expression": "rows.map",
-          "target": null
-        }
-      ]
-    },
-    {
-      "id": "src/process.ts#<callback>@126:45",
-      "file": "src/process.ts",
-      "name": "<callback>",
-      "line": 126,
-      "endLine": 126,
-      "owner": "src/process.ts#readProcessIdentities@113:1",
-      "calls": [
-        {
-          "file": "src/process.ts",
-          "line": 126,
+          "line": 51,
           "expression": "line.trim",
           "target": null
         }
       ]
     },
     {
-      "id": "src/process.ts#<callback>@126:70",
+      "id": "src/process.ts#<callback>@51:59",
       "file": "src/process.ts",
       "name": "<callback>",
-      "line": 126,
-      "endLine": 130,
-      "owner": "src/process.ts#readProcessIdentities@113:1",
+      "line": 51,
+      "endLine": 61,
+      "owner": "src/process.ts#parsePosixProcessTable@50:1",
       "calls": [
         {
           "file": "src/process.ts",
-          "line": 127,
-          "expression": "/^\\s*(\\d+)\\s+(\\S+\\s+\\S+\\s+\\d+\\s+\\S+\\s+\\d+)\\s*$/.exec",
+          "line": 52,
+          "expression": "/^\\s*(\\d+)\\s+(\\d+)\\s+(\\d+)\\s+(\\S+)\\s+(\\S+\\s+\\S+\\s+\\d+\\s+\\S+\\s+\\d+)\\s+(\\S+)\\s+(.+)$/.exec",
           "target": null
         },
         {
           "file": "src/process.ts",
-          "line": 128,
+          "line": 53,
           "expression": "ProcessTableError",
           "target": null
         },
         {
           "file": "src/process.ts",
-          "line": 129,
+          "line": 54,
+          "expression": "match[7].trim",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 56,
           "expression": "Number",
           "target": null
         },
         {
           "file": "src/process.ts",
-          "line": 129,
-          "expression": "match[2].trim",
-          "target": null
-        }
-      ]
-    },
-    {
-      "id": "src/process.ts#<callback>@144:19",
-      "file": "src/process.ts",
-      "name": "<callback>",
-      "line": 144,
-      "endLine": 150,
-      "owner": "src/process.ts#readProcessIdentities@113:1",
-      "calls": [
-        {
-          "file": "src/process.ts",
-          "line": 145,
-          "expression": "Number.isSafeInteger",
+          "line": 56,
+          "expression": "Number",
           "target": null
         },
         {
           "file": "src/process.ts",
-          "line": 145,
-          "expression": "ProcessTableError",
+          "line": 56,
+          "expression": "Number",
           "target": null
         },
         {
           "file": "src/process.ts",
-          "line": 147,
-          "expression": "Number.isFinite",
+          "line": 57,
+          "expression": "match[4].includes",
           "target": null
         },
         {
           "file": "src/process.ts",
-          "line": 147,
-          "expression": "Date.parse",
+          "line": 58,
+          "expression": "match[5].trim",
           "target": null
         },
         {
           "file": "src/process.ts",
-          "line": 148,
-          "expression": "ProcessTableError",
+          "line": 58,
+          "expression": "parseCpuTime",
+          "target": "src/process.ts#parseCpuTime@43:1"
+        },
+        {
+          "file": "src/process.ts",
+          "line": 59,
+          "expression": "createHash(\"sha256\").update(command).digest",
           "target": null
         },
         {
           "file": "src/process.ts",
-          "line": 149,
-          "expression": "new Date(row.started_identity).toISOString",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 149,
-          "expression": "Date",
-          "target": null
-        }
-      ]
-    },
-    {
-      "id": "src/process.ts#processIsRunning@154:1",
-      "file": "src/process.ts",
-      "name": "processIsRunning",
-      "line": 154,
-      "endLine": 156,
-      "owner": null,
-      "calls": [
-        {
-          "file": "src/process.ts",
-          "line": 155,
-          "expression": "processExists",
-          "target": "src/process.ts#processExists@74:1"
-        },
-        {
-          "file": "src/process.ts",
-          "line": 155,
-          "expression": "readProcessIdentities",
-          "target": "src/process.ts#readProcessIdentities@113:1"
-        }
-      ]
-    },
-    {
-      "id": "src/process.ts#readProcessLineage@163:1",
-      "file": "src/process.ts",
-      "name": "readProcessLineage",
-      "line": 163,
-      "endLine": 196,
-      "owner": null,
-      "calls": [
-        {
-          "file": "src/process.ts",
-          "line": 164,
-          "expression": "Number.isSafeInteger",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 164,
-          "expression": "Number.isSafeInteger",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 164,
-          "expression": "ProcessTableError",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 165,
-          "expression": "readPosixLineage",
-          "target": "src/process.ts#readPosixLineage@202:1"
-        },
-        {
-          "file": "src/process.ts",
-          "line": 168,
-          "expression": "windowsJson",
-          "target": "src/process.ts#windowsJson@81:1"
-        },
-        {
-          "file": "src/process.ts",
-          "line": 168,
-          "expression": "[\n      \"$rows=@(); $child=$null\",\n      `$id=${pid}`,\n      `for ($i=0; $i -lt ${depth} -and $id -gt 0; $i++) {`,\n      \"  try { $p=Get-Process -Id $id; $start",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 184,
-          "expression": "readRuntimeProcesses",
-          "target": "src/process.ts#readRuntimeProcesses@218:1"
-        },
-        {
-          "file": "src/process.ts",
-          "line": 185,
-          "expression": "Array.isArray",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 185,
-          "expression": "readRuntimeProcesses",
-          "target": "src/process.ts#readRuntimeProcesses@218:1"
-        },
-        {
-          "file": "src/process.ts",
-          "line": 186,
-          "expression": "rows.map",
-          "target": null
-        }
-      ]
-    },
-    {
-      "id": "src/process.ts#<callback>@186:19",
-      "file": "src/process.ts",
-      "name": "<callback>",
-      "line": 186,
-      "endLine": 195,
-      "owner": "src/process.ts#readProcessLineage@163:1",
-      "calls": [
-        {
-          "file": "src/process.ts",
-          "line": 187,
-          "expression": "Number.isSafeInteger",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 187,
-          "expression": "Number.isSafeInteger",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 188,
-          "expression": "Number.isFinite",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 188,
-          "expression": "Number.isFinite",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 188,
-          "expression": "Date.parse",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 189,
-          "expression": "ProcessTableError",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 192,
-          "expression": "new Date(row.started_identity).toISOString",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 192,
-          "expression": "Date",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 193,
-          "expression": "createHash(\"sha256\").update(row.executable).digest",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 193,
+          "line": 59,
           "expression": "createHash(\"sha256\").update",
           "target": null
         },
         {
           "file": "src/process.ts",
-          "line": 193,
+          "line": 59,
           "expression": "createHash",
           "target": null
         }
       ]
     },
     {
-      "id": "src/process.ts#readPosixLineage@202:1",
+      "id": "src/process.ts#executableName@67:1",
       "file": "src/process.ts",
-      "name": "readPosixLineage",
-      "line": 202,
-      "endLine": 216,
+      "name": "executableName",
+      "line": 67,
+      "endLine": 70,
       "owner": null,
       "calls": [
         {
           "file": "src/process.ts",
-          "line": 205,
-          "expression": "spawnSync",
+          "line": 68,
+          "expression": "row.command.startsWith",
           "target": null
         },
         {
           "file": "src/process.ts",
-          "line": 205,
-          "expression": "String",
+          "line": 68,
+          "expression": "row.command.slice(1).split",
           "target": null
         },
         {
           "file": "src/process.ts",
-          "line": 210,
-          "expression": "parsePosixProcessTable",
-          "target": "src/process.ts#parsePosixProcessTable@40:1"
-        },
-        {
-          "file": "src/process.ts",
-          "line": 212,
-          "expression": "rows.push",
+          "line": 68,
+          "expression": "row.command.slice",
           "target": null
         },
         {
           "file": "src/process.ts",
-          "line": 215,
-          "expression": "readRuntimeProcesses",
-          "target": "src/process.ts#readRuntimeProcesses@218:1"
+          "line": 68,
+          "expression": "row.command.split",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 69,
+          "expression": "(source.split(/[\\\\/]/u).pop() ?? \"\").replace(/^-/u, \"\").replace(/\\.exe$/iu, \"\").toLowerCase",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 69,
+          "expression": "(source.split(/[\\\\/]/u).pop() ?? \"\").replace(/^-/u, \"\").replace",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 69,
+          "expression": "(source.split(/[\\\\/]/u).pop() ?? \"\").replace",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 69,
+          "expression": "source.split(/[\\\\/]/u).pop",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 69,
+          "expression": "source.split",
+          "target": null
         }
       ]
     },
     {
-      "id": "src/process.ts#readRuntimeProcesses@218:1",
+      "id": "src/process.ts#hookOwnerProcess@76:1",
       "file": "src/process.ts",
-      "name": "readRuntimeProcesses",
-      "line": 218,
-      "endLine": 253,
+      "name": "hookOwnerProcess",
+      "line": 76,
+      "endLine": 81,
       "owner": null,
       "calls": [
         {
           "file": "src/process.ts",
-          "line": 220,
+          "line": 77,
+          "expression": "Map",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 77,
+          "expression": "rows.map",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 78,
+          "expression": "byPid.get",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 79,
+          "expression": "HOOK_SHELLS.has",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 79,
+          "expression": "executableName",
+          "target": "src/process.ts#executableName@67:1"
+        },
+        {
+          "file": "src/process.ts",
+          "line": 79,
+          "expression": "byPid.get",
+          "target": null
+        }
+      ]
+    },
+    {
+      "id": "src/process.ts#<callback>@77:34",
+      "file": "src/process.ts",
+      "name": "<callback>",
+      "line": 77,
+      "endLine": 77,
+      "owner": "src/process.ts#hookOwnerProcess@76:1",
+      "calls": []
+    },
+    {
+      "id": "src/process.ts#processExists@84:1",
+      "file": "src/process.ts",
+      "name": "processExists",
+      "line": 84,
+      "endLine": 89,
+      "owner": null,
+      "calls": [
+        {
+          "file": "src/process.ts",
+          "line": 86,
+          "expression": "Number.isSafeInteger",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 87,
+          "expression": "process.kill",
+          "target": null
+        }
+      ]
+    },
+    {
+      "id": "src/process.ts#windowsJson@91:1",
+      "file": "src/process.ts",
+      "name": "windowsJson",
+      "line": 91,
+      "endLine": 98,
+      "owner": null,
+      "calls": [
+        {
+          "file": "src/process.ts",
+          "line": 92,
+          "expression": "[\"$ErrorActionPreference='Stop'\", \"[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false)\", script].join",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 93,
           "expression": "spawnSync",
           "target": null
         },
         {
           "file": "src/process.ts",
-          "line": 223,
-          "expression": "ProcessTableError",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 224,
-          "expression": "parsePosixProcessTable",
-          "target": "src/process.ts#parsePosixProcessTable@40:1"
-        },
-        {
-          "file": "src/process.ts",
-          "line": 226,
-          "expression": "[\n    \"$ErrorActionPreference='Stop'\",\n    \"[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false)\",\n    \"@(Get-CimInstance Win32_Process | Where-Object { $",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 233,
-          "expression": "spawnSync",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 233,
+          "line": 93,
           "expression": "resolveWindowsPowerShell7",
           "target": "src/windows.ts#resolveWindowsPowerShell7@24:1"
         },
         {
           "file": "src/process.ts",
-          "line": 233,
-          "expression": "Buffer.from(script, \"utf16le\").toString",
+          "line": 93,
+          "expression": "Buffer.from(source, \"utf16le\").toString",
           "target": null
         },
         {
           "file": "src/process.ts",
-          "line": 233,
+          "line": 93,
           "expression": "Buffer.from",
           "target": null
         },
         {
           "file": "src/process.ts",
-          "line": 236,
-          "expression": "ProcessTableError",
-          "target": null
+          "line": 96,
+          "expression": "processReadError",
+          "target": "src/process.ts#processReadError@11:1"
         },
         {
           "file": "src/process.ts",
-          "line": 238,
+          "line": 97,
           "expression": "JSON.parse",
           "target": null
         },
         {
           "file": "src/process.ts",
-          "line": 238,
+          "line": 97,
           "expression": "ProcessTableError",
+          "target": null
+        }
+      ]
+    },
+    {
+      "id": "src/process.ts#assertPids@100:1",
+      "file": "src/process.ts",
+      "name": "assertPids",
+      "line": 100,
+      "endLine": 104,
+      "owner": null,
+      "calls": [
+        {
+          "file": "src/process.ts",
+          "line": 101,
+          "expression": "Set",
           "target": null
         },
         {
           "file": "src/process.ts",
-          "line": 239,
+          "line": 102,
+          "expression": "wanted.some",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 102,
+          "expression": "ProcessTableError",
+          "target": null
+        }
+      ]
+    },
+    {
+      "id": "src/process.ts#<callback>@102:19",
+      "file": "src/process.ts",
+      "name": "<callback>",
+      "line": 102,
+      "endLine": 102,
+      "owner": "src/process.ts#assertPids@100:1",
+      "calls": [
+        {
+          "file": "src/process.ts",
+          "line": 102,
+          "expression": "Number.isSafeInteger",
+          "target": null
+        }
+      ]
+    },
+    {
+      "id": "src/process.ts#readProcessIdentities@123:1",
+      "file": "src/process.ts",
+      "name": "readProcessIdentities",
+      "line": 123,
+      "endLine": 161,
+      "owner": null,
+      "calls": [
+        {
+          "file": "src/process.ts",
+          "line": 126,
+          "expression": "assertPids(pids).filter",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 126,
+          "expression": "assertPids",
+          "target": "src/process.ts#assertPids@100:1"
+        },
+        {
+          "file": "src/process.ts",
+          "line": 129,
+          "expression": "spawnSync",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 129,
+          "expression": "wanted.join",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 133,
+          "expression": "result.stdout.trim",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 134,
+          "expression": "processReadError",
+          "target": "src/process.ts#processReadError@11:1"
+        },
+        {
+          "file": "src/process.ts",
+          "line": 136,
+          "expression": "result.stdout.split(\"\\n\").filter(line => line.trim()).map",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 136,
+          "expression": "result.stdout.split(\"\\n\").filter",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 136,
+          "expression": "result.stdout.split",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 142,
+          "expression": "windowsJson",
+          "target": "src/process.ts#windowsJson@91:1"
+        },
+        {
+          "file": "src/process.ts",
+          "line": 142,
+          "expression": "[\n    WINDOWS_STARTED,\n    \"$rows=@()\",\n    `foreach ($id in @(${wanted.join(\",\")})) {`,\n    \"  try { $p=[Diagnostics.Process]::GetProcessById($id) } catch [Arg",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 145,
+          "expression": "wanted.join",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 153,
           "expression": "Array.isArray",
           "target": null
         },
         {
           "file": "src/process.ts",
-          "line": 239,
+          "line": 153,
           "expression": "ProcessTableError",
           "target": null
         },
         {
           "file": "src/process.ts",
-          "line": 240,
+          "line": 154,
           "expression": "rows.map",
           "target": null
         }
       ]
     },
     {
-      "id": "src/process.ts#<callback>@240:19",
+      "id": "src/process.ts#<callback>@136:45",
       "file": "src/process.ts",
       "name": "<callback>",
-      "line": 240,
-      "endLine": 252,
-      "owner": "src/process.ts#readRuntimeProcesses@218:1",
+      "line": 136,
+      "endLine": 136,
+      "owner": "src/process.ts#readProcessIdentities@123:1",
       "calls": [
         {
           "file": "src/process.ts",
-          "line": 241,
-          "expression": "Number.isSafeInteger",
+          "line": 136,
+          "expression": "line.trim",
+          "target": null
+        }
+      ]
+    },
+    {
+      "id": "src/process.ts#<callback>@136:70",
+      "file": "src/process.ts",
+      "name": "<callback>",
+      "line": 136,
+      "endLine": 140,
+      "owner": "src/process.ts#readProcessIdentities@123:1",
+      "calls": [
+        {
+          "file": "src/process.ts",
+          "line": 137,
+          "expression": "/^\\s*(\\d+)\\s+(\\S+\\s+\\S+\\s+\\d+\\s+\\S+\\s+\\d+)\\s*$/.exec",
           "target": null
         },
         {
           "file": "src/process.ts",
-          "line": 241,
-          "expression": "Number.isSafeInteger",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 242,
-          "expression": "Number.isFinite",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 243,
-          "expression": "Number.isFinite",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 243,
-          "expression": "Date.parse",
-          "target": null
-        },
-        {
-          "file": "src/process.ts",
-          "line": 244,
+          "line": 138,
           "expression": "ProcessTableError",
           "target": null
         },
         {
           "file": "src/process.ts",
-          "line": 245,
-          "expression": "row.command.trim",
+          "line": 139,
+          "expression": "Number",
           "target": null
         },
         {
           "file": "src/process.ts",
-          "line": 249,
+          "line": 139,
+          "expression": "match[2].trim",
+          "target": null
+        }
+      ]
+    },
+    {
+      "id": "src/process.ts#<callback>@154:19",
+      "file": "src/process.ts",
+      "name": "<callback>",
+      "line": 154,
+      "endLine": 160,
+      "owner": "src/process.ts#readProcessIdentities@123:1",
+      "calls": [
+        {
+          "file": "src/process.ts",
+          "line": 155,
+          "expression": "Number.isSafeInteger",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 155,
+          "expression": "ProcessTableError",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 157,
+          "expression": "Number.isFinite",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 157,
+          "expression": "Date.parse",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 158,
+          "expression": "ProcessTableError",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 159,
           "expression": "new Date(row.started_identity).toISOString",
           "target": null
         },
         {
           "file": "src/process.ts",
-          "line": 249,
+          "line": 159,
+          "expression": "Date",
+          "target": null
+        }
+      ]
+    },
+    {
+      "id": "src/process.ts#processIsRunning@164:1",
+      "file": "src/process.ts",
+      "name": "processIsRunning",
+      "line": 164,
+      "endLine": 166,
+      "owner": null,
+      "calls": [
+        {
+          "file": "src/process.ts",
+          "line": 165,
+          "expression": "processExists",
+          "target": "src/process.ts#processExists@84:1"
+        },
+        {
+          "file": "src/process.ts",
+          "line": 165,
+          "expression": "readProcessIdentities",
+          "target": "src/process.ts#readProcessIdentities@123:1"
+        }
+      ]
+    },
+    {
+      "id": "src/process.ts#readProcessLineage@173:1",
+      "file": "src/process.ts",
+      "name": "readProcessLineage",
+      "line": 173,
+      "endLine": 206,
+      "owner": null,
+      "calls": [
+        {
+          "file": "src/process.ts",
+          "line": 174,
+          "expression": "Number.isSafeInteger",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 174,
+          "expression": "Number.isSafeInteger",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 174,
+          "expression": "ProcessTableError",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 175,
+          "expression": "readPosixLineage",
+          "target": "src/process.ts#readPosixLineage@212:1"
+        },
+        {
+          "file": "src/process.ts",
+          "line": 178,
+          "expression": "windowsJson",
+          "target": "src/process.ts#windowsJson@91:1"
+        },
+        {
+          "file": "src/process.ts",
+          "line": 178,
+          "expression": "[\n      \"$rows=@(); $child=$null\",\n      `$id=${pid}`,\n      `for ($i=0; $i -lt ${depth} -and $id -gt 0; $i++) {`,\n      \"  try { $p=Get-Process -Id $id; $start",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 194,
+          "expression": "readRuntimeProcesses",
+          "target": "src/process.ts#readRuntimeProcesses@228:1"
+        },
+        {
+          "file": "src/process.ts",
+          "line": 195,
+          "expression": "Array.isArray",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 195,
+          "expression": "readRuntimeProcesses",
+          "target": "src/process.ts#readRuntimeProcesses@228:1"
+        },
+        {
+          "file": "src/process.ts",
+          "line": 196,
+          "expression": "rows.map",
+          "target": null
+        }
+      ]
+    },
+    {
+      "id": "src/process.ts#<callback>@196:19",
+      "file": "src/process.ts",
+      "name": "<callback>",
+      "line": 196,
+      "endLine": 205,
+      "owner": "src/process.ts#readProcessLineage@173:1",
+      "calls": [
+        {
+          "file": "src/process.ts",
+          "line": 197,
+          "expression": "Number.isSafeInteger",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 197,
+          "expression": "Number.isSafeInteger",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 198,
+          "expression": "Number.isFinite",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 198,
+          "expression": "Number.isFinite",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 198,
+          "expression": "Date.parse",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 199,
+          "expression": "ProcessTableError",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 202,
+          "expression": "new Date(row.started_identity).toISOString",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 202,
           "expression": "Date",
           "target": null
         },
         {
           "file": "src/process.ts",
-          "line": 250,
-          "expression": "createHash(\"sha256\").update(command).digest",
+          "line": 203,
+          "expression": "createHash(\"sha256\").update(row.executable).digest",
           "target": null
         },
         {
           "file": "src/process.ts",
-          "line": 250,
+          "line": 203,
           "expression": "createHash(\"sha256\").update",
           "target": null
         },
         {
           "file": "src/process.ts",
+          "line": 203,
+          "expression": "createHash",
+          "target": null
+        }
+      ]
+    },
+    {
+      "id": "src/process.ts#readPosixLineage@212:1",
+      "file": "src/process.ts",
+      "name": "readPosixLineage",
+      "line": 212,
+      "endLine": 226,
+      "owner": null,
+      "calls": [
+        {
+          "file": "src/process.ts",
+          "line": 215,
+          "expression": "spawnSync",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 215,
+          "expression": "String",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 220,
+          "expression": "parsePosixProcessTable",
+          "target": "src/process.ts#parsePosixProcessTable@50:1"
+        },
+        {
+          "file": "src/process.ts",
+          "line": 222,
+          "expression": "rows.push",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 225,
+          "expression": "readRuntimeProcesses",
+          "target": "src/process.ts#readRuntimeProcesses@228:1"
+        }
+      ]
+    },
+    {
+      "id": "src/process.ts#readRuntimeProcesses@228:1",
+      "file": "src/process.ts",
+      "name": "readRuntimeProcesses",
+      "line": 228,
+      "endLine": 263,
+      "owner": null,
+      "calls": [
+        {
+          "file": "src/process.ts",
+          "line": 230,
+          "expression": "spawnSync",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 233,
+          "expression": "processReadError",
+          "target": "src/process.ts#processReadError@11:1"
+        },
+        {
+          "file": "src/process.ts",
+          "line": 234,
+          "expression": "parsePosixProcessTable",
+          "target": "src/process.ts#parsePosixProcessTable@50:1"
+        },
+        {
+          "file": "src/process.ts",
+          "line": 236,
+          "expression": "[\n    \"$ErrorActionPreference='Stop'\",\n    \"[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false)\",\n    \"@(Get-CimInstance Win32_Process | Where-Object { $",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 243,
+          "expression": "spawnSync",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 243,
+          "expression": "resolveWindowsPowerShell7",
+          "target": "src/windows.ts#resolveWindowsPowerShell7@24:1"
+        },
+        {
+          "file": "src/process.ts",
+          "line": 243,
+          "expression": "Buffer.from(script, \"utf16le\").toString",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 243,
+          "expression": "Buffer.from",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 246,
+          "expression": "processReadError",
+          "target": "src/process.ts#processReadError@11:1"
+        },
+        {
+          "file": "src/process.ts",
+          "line": 248,
+          "expression": "JSON.parse",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 248,
+          "expression": "ProcessTableError",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 249,
+          "expression": "Array.isArray",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 249,
+          "expression": "ProcessTableError",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
           "line": 250,
+          "expression": "rows.map",
+          "target": null
+        }
+      ]
+    },
+    {
+      "id": "src/process.ts#<callback>@250:19",
+      "file": "src/process.ts",
+      "name": "<callback>",
+      "line": 250,
+      "endLine": 262,
+      "owner": "src/process.ts#readRuntimeProcesses@228:1",
+      "calls": [
+        {
+          "file": "src/process.ts",
+          "line": 251,
+          "expression": "Number.isSafeInteger",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 251,
+          "expression": "Number.isSafeInteger",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 252,
+          "expression": "Number.isFinite",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 253,
+          "expression": "Number.isFinite",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 253,
+          "expression": "Date.parse",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 254,
+          "expression": "ProcessTableError",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 255,
+          "expression": "row.command.trim",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 259,
+          "expression": "new Date(row.started_identity).toISOString",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 259,
+          "expression": "Date",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 260,
+          "expression": "createHash(\"sha256\").update(command).digest",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 260,
+          "expression": "createHash(\"sha256\").update",
+          "target": null
+        },
+        {
+          "file": "src/process.ts",
+          "line": 260,
           "expression": "createHash",
           "target": null
         }
@@ -22036,13 +22076,13 @@
     },
     {
       "file": "src/process.ts",
-      "line": 55,
+      "line": 65,
       "expression": "Set",
       "target": null
     },
     {
       "file": "src/process.ts",
-      "line": 100,
+      "line": 110,
       "expression": "[\n  \"function Started($p) {\",\n  \"  try { return $p.StartTime.ToUniversalTime().ToString('o') }\",\n  \"  catch [InvalidOperationException] { return '' }\",\n  \"  cat",
       "target": null
     }
