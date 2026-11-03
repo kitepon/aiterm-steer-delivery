@@ -16,8 +16,8 @@ digraph setup {
  profile -> provider;provider -> call;process -> call [style=dashed,label="own CLI child cleanup"];
  apply -> unknown [style=dashed,label="no global rollback"];call -> unknown [style=dashed,label="send outcome_unknown"];saved -> unknown [style=dashed,label="consumer action separate"];
  entry [label="index.ts exports: readRuntimeProcesses / readProcessIdentities / readProcessLineage"];
- caller [label="channel / claude-receiver / codex-hook-state / codex-hooks / codex-setup
-Aiterm + Bridge consume public exports"];
+ caller [label="internal: channel / claude-receiver / codex-hook-state / codex-hooks / codex-setup
+direct import from process.js"];
  os [label="POSIX ps / Windows PS7 (.NET; WMI where required)
 existing 10s / 15s limits"];
  result [label="success: parsed identity / table / lineage
@@ -29,5 +29,6 @@ no raw argv, command, error message, stdout, stderr retained",fillcolor="#fff0d8
  display [label="consumer propagates Error.message
 CLI JSON / hook stderr / Aiterm tool text
 not a launch side-effect or recovery proof"];
- caller -> entry;entry -> process;process -> os;os -> result;os -> failure;failure -> display;
+ external [label="external Aiterm / Bridge consumers"];
+ caller -> process;external -> entry;entry -> process;process -> os;os -> result;os -> failure;failure -> display;
 }

@@ -267,4 +267,4 @@ CI runs the tests on Ubuntu, macOS, and Windows. Pushing a `v<version>` tag publ
 
 ## Architecture
 
-[Product boundaries and source index](docs/architecture/README.md).
+[Product boundaries and source index](https://github.com/kitepon/aiterm-steer-delivery/blob/fix/process-probe-details-20261103/docs/architecture/README.md).

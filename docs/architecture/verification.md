@@ -1,0 +1,13 @@
+# process診断候補の検証
+
+実装snapshot ce8fea83acae3894042aa1a4886569a2d373510e、3OS検証HEAD d4ddb80f046f80c0116f4cf9ac61cbc4f330573c。公開前準備0.5.2はversion/CHANGELOG/図/参照文書だけを進め、全50distが検証候補と同bytesであることをpackで比較する。
+
+[限定CI 41610253980](https://github.com/kitepon/aiterm-steer-delivery/actions/runs/41610253980)はLinux45pass/2skip、macOS45pass/2skip、Windows44pass/3skip、各47件・fail0で成功。skipは既platform条件。対象はprocess本人性/安全失敗、channel、Bridge公開surface、Claude hook/cleanup、Codex hook trust。既Mac席や全vendorの実業務受入とは別である。
+
+直接fixture SHA256 `b687ae3f7ce7e6f57856b7193d7a688f08d2b59fbb9fac5a22b37f1c10dabbae`。Node builtinを置換する新3platform試験と、各OSの既本人性/owner fixtureを区別する。Linuxローカル関連47件は全pass。元logは上書きしない：probe-red.logは旧sourceで3red、probe-green.logは修理途中2green/1red（Windows fixtureがPS7 canonical pathを模擬していなかった）、related-green.logはそのfixture補正後の最終47passに新3platform greenを含む。中間logを完成結果として引用しない。製品外の固定原本・source/pack比較は担当成果のsteer-mac-process-failure-20261103へ保存する。
+
+正式0.5.1との全公開型25fileは同bytes。dist50file中、診断runtime差分はprocess.jsだけ。message suffix追加以外のsignature/export map/state/config/timeout/fallback/parse意味は同じ。Bridge担当は固定候補を未変更channel入口の隔離fixtureへ接続し、安全message保持/CHANNEL_FAILED/queued本文保持とPython envelope受取を独立確認、修正不要と回答した。CLI_FAILEDは既catchの静的確認と受取envelope試験で確認している。
+
+図は内部5module→process直接import、外部consumer→index exports→processを区別し、変更1図だけ再描画・目視した。READMEは配布物に無いdocsへの相対参照を候補branchのrepository URLへ修正した。巨大索引は配布へ追加しない。
+
+実Macの旧errno/loaded dependency版はunknown。診断追加やCI成功はlaunch復旧証明ではない。main/正式公開/Host更新/既MCP再起動/認証/AI発行は別の許可・実行境界を保持する。
