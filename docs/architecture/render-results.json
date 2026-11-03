@@ -1,0 +1,27 @@
+{
+  "graphviz": "16.1.0",
+  "results": [
+    {
+      "file": "channel.dot",
+      "width": 1500,
+      "height": 1096,
+      "svg": true,
+      "png": true
+    },
+    {
+      "file": "steer-receivers.dot",
+      "width": 2064,
+      "height": 721,
+      "svg": true,
+      "png": true
+    },
+    {
+      "file": "steer-setup-runtime.dot",
+      "width": 2052,
+      "height": 961,
+      "svg": true,
+      "png": true
+    }
+  ],
+  "selfCheck": "passed"
+}

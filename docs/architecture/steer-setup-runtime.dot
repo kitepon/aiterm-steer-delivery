@@ -1,0 +1,33 @@
+digraph setup {
+ graph [rankdir=TB,bgcolor="white",pad=0.3,nodesep=0.55,ranksep=0.55,label="Current Steer configuration / process runtime / Aiterm provider",labelloc=t,fontname="DejaVu Sans",fontsize=18];
+ node [shape=box,style="rounded,filled",fillcolor="#eaf8f1",fontname="DejaVu Sans",fontsize=12];
+ edge [fontname="DejaVu Sans",fontsize=10,color="#536070"];
+ profile [label="ProductProfile / CLI profile JSON\nproduct owns roots, schemas, entry names"];
+ process [label="process.ts + windows.ts + setup-node.ts\nPID / birth / lineage; PS7 and Node identity\nquoted argv; no configuration on mere import"];
+ binary [label="codex-binary: explicit / Desktop / CLI discovery\nversion / signature or cache checks\nmissing saved binary: rediscover + product config write"];
+ plan [label="Codex hook plan\npreserve other hooks + own insertion location\ncalculate moved and vacated trust keys"];
+ apply [label="apply: copy existing other-hook trust\nbackup → temp/rename → readback\nclean vacated keys; approve own hook via official API"];
+ saved [label="Save product hook config + stale PID/birth set\nthen disable legacy if selected\nready / restart_required / disabled"];
+ cc [label="Claude / Cursor registration\nrecognize old/new own entry with filename boundary\npreserve foreign hooks/order; backup + readback"];
+ provider [label="Aiterm provider discovery\nexplicit → delivery-provider record → PATH\ninvalid explicit target: refuse, no fallback"];
+ call [label="Spawn provider CLI once; stdin body\nvalidate last stdout JSON schema / ok\nverify / submit / state receipts"];
+ unknown [label="Partial configuration / lost send response\npreserve existing errors and effect distinctions\nrestart_required never restarts a seat",fillcolor="#fff0d8"];
+ profile -> process;profile -> plan;process -> binary;binary -> apply;plan -> apply;apply -> saved;profile -> cc;
+ profile -> provider;provider -> call;process -> call [style=dashed,label="own CLI child cleanup"];
+ apply -> unknown [style=dashed,label="no global rollback"];call -> unknown [style=dashed,label="send outcome_unknown"];saved -> unknown [style=dashed,label="consumer action separate"];
+ entry [label="index.ts exports: readRuntimeProcesses / readProcessIdentities / readProcessLineage"];
+ caller [label="channel / claude-receiver / codex-hook-state / codex-hooks / codex-setup
+Aiterm + Bridge consume public exports"];
+ os [label="POSIX ps / Windows PS7 (.NET; WMI where required)
+existing 10s / 15s limits"];
+ result [label="success: parsed identity / table / lineage
+identity empty exit 1: absent
+lineage failure: existing fallback or partial result"];
+ failure [label="terminal native read failure: ProcessTableError code=2
+proposed safe suffix: component / probe / code / status / signal / bytes
+no raw argv, command, error message, stdout, stderr retained",fillcolor="#fff0d8"];
+ display [label="consumer propagates Error.message
+CLI JSON / hook stderr / Aiterm tool text
+not a launch side-effect or recovery proof"];
+ caller -> entry;entry -> process;process -> os;os -> result;os -> failure;failure -> display;
+}

@@ -1,0 +1,21 @@
+digraph receivers {
+ graph [rankdir=TB,bgcolor="white",pad=0.3,nodesep=0.6,ranksep=0.6,label="Current Steer receivers: acceptance, output, wake and uncertainty",labelloc=t,fontname="DejaVu Sans",fontsize=18];
+ node [shape=box,style="rounded,filled",fillcolor="#eaf8f1",fontname="DejaVu Sans",fontsize=12];
+ edge [fontname="DejaVu Sans",fontsize=10,color="#536070"];
+ input [label="Product profile + parent endpoint + delivery ID + final text\nwithDeliveryEffect at actual queue / dequeue / emit / wake"];
+ codex [label="Codex: pending(thread + text digest)\nApp Server queue/add once → queue receipt\nunknown keeps input ownership"];
+ hook [label="Codex synchronous hook\nmatch queue + own pending + digest\nclaim → deleting → queue/delete → emit"];
+ codexend [label="emitted / not_in_queue / unknown\npublic state = sending / unknown / null"];
+ wake [label="Separate Codex wake watch\nonly app + completed/none + still queued\nOS link then queue movement; never work completion"];
+ claude [label="Claude: PreToolUse request identity\nbind delivery → save answer\nasync hook waits for matching answer"];
+ claudeout [label="sending → stderr output → emitted → exit 2\nsubmit waits emitted; failure retains answer\nSessionEnd closes original request"];
+ cursor [label="Cursor: tool-result delivery ID\nhook binds actual conversation\nanswer saved; hook / receiver compete for wx claim"];
+ cursorout [label="submit waits claim, not completed output\nhook: additional_context\nreceiver: reader probe before claim → result output"];
+ inbox [label="Claude inbox: explicit socket + optional token\nwrite one raw user frame\naccepted only by caller's post-write receipt observer"];
+ uncertain [label="Queue timeout / interrupted claim / output failure\nunknown is retained; no automatic body replay\nno receipt / no output proof is not not_sent",fillcolor="#fff0d8"];
+ final [label="Vendor owns actual conversation / turn / display\nSteer receipt does not prove business completion",fillcolor="#f0f0f0"];
+ input -> codex;input -> claude;input -> cursor;input -> inbox;
+ codex -> hook;hook -> codexend;codex -> wake [style=dashed,label="after acceptance"];claude -> claudeout;cursor -> cursorout;
+ codexend -> final;claudeout -> final;cursorout -> final;inbox -> final [label="receiver_confirmed or unknown"];wake -> final [style=dashed];
+ codex -> uncertain [style=dashed];hook -> uncertain [style=dashed];claudeout -> uncertain [style=dashed];cursorout -> uncertain [style=dashed];inbox -> uncertain [style=dashed];
+}

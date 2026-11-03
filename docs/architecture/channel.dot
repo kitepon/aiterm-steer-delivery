@@ -1,0 +1,20 @@
+digraph channel {
+ graph [rankdir=TB,bgcolor="white",pad=0.3,nodesep=0.5,ranksep=0.6,label="Current non-Codex channel ownership and output states",labelloc=t,fontname="DejaVu Sans",fontsize=17];
+ node [shape=box,style="rounded,filled",fillcolor="#eaf8f1",fontname="DejaVu Sans",fontsize=12];
+ edge [fontname="DejaVu Sans",fontsize=10,color="#526070"];
+ bridge [label="Bridge owns DB + delivery reservation\npasses profile / channel / delivery ID / text",fillcolor="#f0f0f0"];
+ read [label="channel.ts: readChannel / channelClosed\nvalidate UUID + schema + closed mark"];
+ queue [label="channel.ts: sendToChannel → inbox persistence\ninbox item; atomic hard-link admission\nreturns queued (not emitted)"];
+ claim [label="channel.ts: claimPending\nexclusive claim / sender identity\nstate = sending"];
+ emit [label="channel.ts: emitClaimed\nvendor hook / background receiver output"];
+ emitted [label="channel.ts: settle emitted\nwrite emitted record, then remove claim"];
+ unknown [label="channel.ts: settle unknown\nretain claim, no automatic resend",fillcolor="#fff0d8"];
+ withdraw [label="channel.ts: withdrawFromChannel\ncompetes for the same claim link\ntrue only if item was not output"];
+ state [label="channel.ts: channelDeliveryState\nqueued / sending / emitted / unknown\nwithdrawn / null"];
+ close [label="channel.ts: closeChannel\nclosed mark; unclaimed text retained\nwaiter exits when mark is observed"];
+ bridge -> read;read -> queue;queue -> claim;claim -> emit;emit -> emitted [label="output returns"];emit -> unknown [label="output throws"];
+ queue -> withdraw [label="still unclaimed"];withdraw -> state;
+ emitted -> state;unknown -> state;claim -> state;queue -> state;
+ bridge -> close;close -> read [label="new sends refused",style=dashed];
+ state -> bridge [label="state evidence, not work completion"];
+}
