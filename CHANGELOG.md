@@ -1,3 +1,7 @@
+## Unreleased
+
+- Preserve safe OS failure details for process reads without exposing command lines or output.
+
 # Changelog
 
 ## Unreleased

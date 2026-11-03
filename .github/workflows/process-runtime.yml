@@ -1,0 +1,23 @@
+name: Process runtime contracts
+on:
+  push:
+    branches: [fix/process-probe-details-20261103]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  process-runtime:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: node --test test/process-probe-error.test.mjs test/process-identity.test.mjs test/channel.test.mjs test/call-bridge-surface.test.mjs test/claude-hook-shell.test.mjs test/claude-request-cleanup.test.mjs test/codex-hook-trust.test.mjs

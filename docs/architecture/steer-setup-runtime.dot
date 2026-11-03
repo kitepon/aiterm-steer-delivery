@@ -24,7 +24,7 @@ existing 10s / 15s limits"];
 identity empty exit 1: absent
 lineage failure: existing fallback or partial result"];
  failure [label="terminal native read failure: ProcessTableError code=2
-proposed safe suffix: component / probe / code / status / signal / bytes
+safe suffix: component / probe / code / status / signal / bytes
 no raw argv, command, error message, stdout, stderr retained",fillcolor="#fff0d8"];
  display [label="consumer propagates Error.message
 CLI JSON / hook stderr / Aiterm tool text

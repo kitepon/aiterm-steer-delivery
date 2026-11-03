@@ -1,11 +1,21 @@
 // OSのprocess表。PIDの再利用を見分けるため、開始時刻（started_identity）と組にして扱う。
-import { spawnSync } from "node:child_process";
+import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { createHash } from "node:crypto";
 import { resolveWindowsPowerShell7 } from "./windows.js";
 
 const isWin = process.platform === "win32";
 class ProcessTableError extends Error {
   readonly code = 2;
+}
+
+function processReadError(probe: string, failure: string, result: SpawnSyncReturns<string>): ProcessTableError {
+  const code = (result.error as NodeJS.ErrnoException | undefined)?.code;
+  // Native messages and output can contain argv and credentials.
+  const detail = { component: "aiterm-steer-delivery", probe, code: result.error
+    ? (code && ["ETIMEDOUT", "ENOBUFS", "EAGAIN", "ENOENT", "EACCES", "ENOMEM", "EMFILE", "ENFILE", "E2BIG", "EPERM"].includes(code) ? code : "UNKNOWN") : null,
+    status: result.status ?? null, signal: result.signal ?? null,
+    stdout_bytes: Buffer.byteLength(result.stdout ?? ""), stderr_bytes: Buffer.byteLength(result.stderr ?? "") };
+  return new ProcessTableError(`${failure} ${JSON.stringify(detail)}`);
 }
 
 export interface NativeProcessIdentity {
@@ -78,12 +88,12 @@ export function processExists(pid: number): boolean {
   catch (error) { return (error as NodeJS.ErrnoException).code === "EPERM"; }
 }
 
-function windowsJson(script: string, failure: string): unknown {
+function windowsJson(script: string, failure: string, probe: string): unknown {
   const source = ["$ErrorActionPreference='Stop'", "[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false)", script].join("\n");
   const result = spawnSync(resolveWindowsPowerShell7(), ["-NoLogo", "-NoProfile", "-NonInteractive", "-EncodedCommand", Buffer.from(source, "utf16le").toString("base64")], {
     encoding: "utf8", timeout: 15000, maxBuffer: 16 * 1024 * 1024, windowsHide: true,
   });
-  if (result.error || result.status !== 0) throw new ProcessTableError(failure);
+  if (result.error || result.status !== 0) throw processReadError(probe, failure, result);
   try { return JSON.parse(result.stdout); } catch { throw new ProcessTableError(failure); }
 }
 
@@ -121,7 +131,7 @@ export function readProcessIdentities(pids: readonly number[]): { pid: number; s
     });
     // 該当するprocessが一つも無い時、psは何も出さずstatus 1で終わる。
     if (result.error || (result.status !== 0 && !(result.status === 1 && !result.stdout.trim()))) {
-      throw new ProcessTableError("OSのprocess一覧を取得できません");
+      throw processReadError("identity", "OSのprocess一覧を取得できません", result);
     }
     return result.stdout.split("\n").filter(line => line.trim()).map(line => {
       const match = /^\s*(\d+)\s+(\S+\s+\S+\s+\d+\s+\S+\s+\d+)\s*$/.exec(line);
@@ -139,7 +149,7 @@ export function readProcessIdentities(pids: readonly number[]): { pid: number; s
     "  $rows += [ordered]@{ pid=[int]$id; started_identity=$started }",
     "}",
     "ConvertTo-Json -Compress -InputObject $rows",
-  ].join("\n"), "Windowsのprocessの開始時刻を取得できません");
+  ].join("\n"), "Windowsのprocessの開始時刻を取得できません", "identity");
   if (!Array.isArray(rows)) throw new ProcessTableError("Windows processの読みが配列ではありません");
   return rows.map(row => {
     if (!row || !Number.isSafeInteger(row.pid)) throw new ProcessTableError("Windows processの読みのfieldが不正です");
@@ -180,7 +190,7 @@ export function readProcessLineage(pid: number, depth = 8): RuntimeProcess[] {
       "  $child=$started; $id=$parent",
       "}",
       "ConvertTo-Json -Compress -InputObject $rows",
-    ].join("\n"), "Windowsのprocessの先祖を取得できません");
+    ].join("\n"), "Windowsのprocessの先祖を取得できません", "lineage");
   } catch { return readRuntimeProcesses(); }
   if (!Array.isArray(rows) || rows[0]?.pid !== pid) return readRuntimeProcesses();
   return rows.map(row => {
@@ -220,7 +230,7 @@ export function readRuntimeProcesses(): RuntimeProcess[] {
     const result = spawnSync("/bin/ps", ["-axww", "-o", "pid=,ppid=,pgid=,stat=,lstart=,time=,command="], {
       encoding: "utf8", env: { ...process.env, LC_ALL: "C" }, timeout: 10000, maxBuffer: 16 * 1024 * 1024,
     });
-    if (result.error || result.status !== 0) throw new ProcessTableError("OSのprocess一覧を取得できません");
+    if (result.error || result.status !== 0) throw processReadError("table", "OSのprocess一覧を取得できません", result);
     return parsePosixProcessTable(result.stdout);
   }
   const script = [
@@ -233,7 +243,7 @@ export function readRuntimeProcesses(): RuntimeProcess[] {
   const result = spawnSync(resolveWindowsPowerShell7(), ["-NoLogo", "-NoProfile", "-NonInteractive", "-EncodedCommand", Buffer.from(script, "utf16le").toString("base64")], {
     encoding: "utf8", timeout: 15000, maxBuffer: 16 * 1024 * 1024, windowsHide: true,
   });
-  if (result.error || result.status !== 0) throw new ProcessTableError("Windowsのnative process一覧を取得できません");
+  if (result.error || result.status !== 0) throw processReadError("table", "Windowsのnative process一覧を取得できません", result);
   let rows: unknown;
   try { rows = JSON.parse(result.stdout); } catch { throw new ProcessTableError("Windows process一覧のJSONを読めません"); }
   if (!Array.isArray(rows)) throw new ProcessTableError("Windows process一覧が配列ではありません");

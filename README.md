@@ -264,3 +264,7 @@ CI runs the tests on Ubuntu, macOS, and Windows. Pushing a `v<version>` tag publ
 ## License
 
 [MIT](LICENSE)
+
+## Architecture
+
+[Product boundaries and source index](docs/architecture/README.md).
