@@ -1,4 +1,4 @@
-## Unreleased
+## 0.5.2 (2026-11-03)
 
 - Preserve safe OS failure details for process reads without exposing command lines or output.
 
