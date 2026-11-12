@@ -12,7 +12,7 @@ digraph receivers {
  cursor [label="Cursor: tool-result delivery ID\nhook binds actual conversation\nanswer saved; hook / receiver compete for wx claim"];
  cursorout [label="submit waits claim, not completed output\nhook: additional_context\nreceiver: reader probe before claim → result output"];
  inbox [label="Claude inbox: explicit socket + optional token\nwrite one raw user frame\naccepted only by caller's post-write receipt observer"];
- uncertain [label="Queue timeout / interrupted claim / output failure\nunknown is retained; no automatic body replay\nno receipt / no output proof is not not_sent",fillcolor="#fff0d8"];
+ uncertain [label="Queue timeout / interrupted claim / output failure\nunknown is retained; no automatic body replay\nno receipt / no output proof is not not_sent\n(0.5.3) a request times out only after an answer already\nin the pipe was read: a blocked event loop is not a timeout",fillcolor="#fff0d8"];
  final [label="Vendor owns actual conversation / turn / display\nSteer receipt does not prove business completion",fillcolor="#f0f0f0"];
  input -> codex;input -> claude;input -> cursor;input -> inbox;
  codex -> hook;hook -> codexend;codex -> wake [style=dashed,label="after acceptance"];claude -> claudeout;cursor -> cursorout;
