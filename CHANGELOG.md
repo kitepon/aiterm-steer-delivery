@@ -1,3 +1,7 @@
+## 0.5.3 (2026-11-12)
+
+- A Codex App Server request no longer times out while an answer is already waiting in the pipe. When the calling process's event loop was blocked past the deadline (15 s by default), the timer fired before the answer was read and the request failed with `CODEX_RECEIVER_TIMEOUT`. The timer now waits one turn of the loop and rejects only if the request is still pending. Reported by Kiro: a host Aiterm blocked for ~16 s by goal reads made Codex goal reads unavailable.
+
 ## 0.5.2 (2026-11-03)
 
 - Preserve safe OS failure details for process reads without exposing command lines or output.

@@ -16,7 +16,7 @@ flowchart LR
 ```
 
 - [channel](channel.md) / [図](channel.svg): 保存、競合、待機、出力。
-- [vendor receiver図](steer-receivers.svg): 受付と表示、unknown保持。
+- [vendor receiver図](steer-receivers.svg): 受付と表示、unknown保持。Codex App Serverへの要求の時間切れ（既定15秒）は、時計が切れた後に一度だけ待ち、その間にすでに届いている返事を先に読む（0.5.3）。呼んだprocessの動きが止まっていた時間を、相手の無応答として数えない。
 - [setup/runtime/provider](steer-setup-runtime.md) / [図](steer-setup-runtime.svg): process本人性、設定、依存解決、外部窓口。
 - [process公開失敗契約](process-diagnostics.md): 正式6734の基準動作と候補に実装した診断追加、caller、試験範囲。
 

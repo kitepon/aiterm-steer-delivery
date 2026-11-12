@@ -105,10 +105,13 @@ export async function withCodexReceiver<T>(
       return;
     }
     const id = ++sequence;
-    const timer = setTimeout(() => {
+    // A loop blocked past the deadline fires this timer before reading an answer already in the pipe.
+    // setImmediate runs after this turn's poll phase, so that answer settles the request first.
+    const timer = setTimeout(() => setImmediate(() => {
+      if (!pending.has(id)) return;
       pending.delete(id);
       reject(new CodexDeliveryError("CODEX_RECEIVER_TIMEOUT", `${method}の応答を確認できません`, method === "thread/queue/add"));
-    }, runtime.timeout_ms ?? 15_000);
+    }), runtime.timeout_ms ?? 15_000);
     pending.set(id, { resolve, reject, timer, method });
     child.stdin.write(JSON.stringify({ id, method, params }) + "\n");
   });

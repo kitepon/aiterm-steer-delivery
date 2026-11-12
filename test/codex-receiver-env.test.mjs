@@ -54,3 +54,26 @@ test('withCodexReceiverは、PATHにnodeの場所が無い環境を渡されて�
     { executable: process.execPath, args: [script], timeout_ms: 10000, env: { ...process.env, [key]: thin } });
   assert.equal(seen.path, `${dirname(liveNodeExecutable())}${delimiter}${thin}`);
 });
+
+// Kiro 2026-11-12: a host Aiterm blocked its event loop for ~16 s, so the 15 s timer fired before the answer already in the pipe was read.
+test('withCodexReceiverは、止まっていた間に届いた返事を、時間切れより先に読む', async t => {
+  const dir = mkdtempSync(join(tmpdir(), 'steer-receiver-blocked-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const script = join(dir, 'app-server.mjs');
+  writeFileSync(script, `import { createInterface } from 'node:readline';
+createInterface({ input: process.stdin }).on('line', line => {
+  const message = JSON.parse(line);
+  if (message.id === undefined) return;
+  setTimeout(() => process.stdout.write(JSON.stringify({ id: message.id, result: { method: message.method } }) + '\\n'), message.method === 'slow' ? 100 : 0);
+});`);
+  const parent = { thread_id: '00000000-0000-4000-8000-000000000000', codex_home: join(dir, 'home') };
+  const result = await withCodexReceiver(profile, parent, async request => {
+    const answer = request('slow', {});
+    // Block the loop past the 300 ms deadline while the answer arrives at about +100 ms. The block runs in the check
+    // phase (like work that follows an I/O callback), so the next phase is timers, before the pipe is read.
+    await new Promise(resolve => setTimeout(resolve, 20));
+    await new Promise(resolve => setImmediate(() => { const until = Date.now() + 700; while (Date.now() < until) { /* blocked */ } resolve(); }));
+    return answer;
+  }, { executable: process.execPath, args: [script], timeout_ms: 300 });
+  assert.deepEqual(result, { method: 'slow' });
+});
